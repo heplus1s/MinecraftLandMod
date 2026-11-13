@@ -30,7 +30,7 @@ import java.util.UUID;
 public final class ClaimMap {
     public static final int FORMAT = 2;
 
-    private static final Set<String> ROOT_KEYS = Set.of("Format", "Claims", "Parcels");
+    private static final Set<String> ROOT_KEYS = Set.of("Format", "Claims", "Parcels", "Sales");
     private static final Set<String> CLAIM_KEYS = Set.of(
             "Dim", "X", "Z", "Owner", "OwnerName", "Name", "Members", "Flags", "Parcel");
     private static final Set<String> MEMBER_KEYS = Set.of("Id", "Name");
@@ -43,6 +43,7 @@ public final class ClaimMap {
 
     private final Map<ClaimKey, Claim> claims = new HashMap<>();
     private final Map<UUID, Parcel> parcels = new HashMap<>();
+    private final SaleBook sales = new SaleBook();
     private NbtCompound extraRoot = new NbtCompound();
     private int storedFormat = FORMAT;
     private int revision = 1;
@@ -206,6 +207,39 @@ public final class ClaimMap {
             return new NbtCompound();
         }
         return parcel.flags().copy();
+    }
+
+    public Result sellParcel(UUID seller, String sellerName, UUID parcelId) {
+        return sales.sellParcel(this, seller, sellerName, parcelId);
+    }
+
+    public Result sellChunks(UUID seller, String sellerName, List<ClaimKey> keys) {
+        return sales.sellChunks(this, seller, sellerName, keys);
+    }
+
+    public Result cancelSale(UUID seller, UUID parcelId) {
+        return sales.cancel(this, seller, parcelId);
+    }
+
+    public Result buyParcel(UUID buyer, String buyerName, UUID parcelId, int maxClaims) {
+        return sales.buyParcel(this, buyer, buyerName, parcelId, maxClaims);
+    }
+
+    public Result buyChunks(UUID buyer, String buyerName, List<ClaimKey> keys, int maxClaims) {
+        return sales.buyChunks(this, buyer, buyerName, keys, maxClaims);
+    }
+
+    public @Nullable SaleInfo saleOf(UUID parcelId) {
+        return sales.find(parcelId);
+    }
+
+    public List<SaleInfo> sales() {
+        sales.prune(this);
+        return sales.list();
+    }
+
+    public int saleRevision() {
+        return sales.revision();
     }
 
     public boolean putParcelFlag(UUID parcelId, String key, NbtElement value) {
@@ -673,6 +707,8 @@ public final class ClaimMap {
             parcelList.add(writeParcel(parcel));
         }
         root.put("Parcels", parcelList);
+        sales.prune(this);
+        root.put("Sales", sales.toNbt());
         return root;
     }
 
@@ -708,6 +744,7 @@ public final class ClaimMap {
             }
         }
         map.normalizeParcels();
+        map.sales.read(nbt.getList("Sales", NbtElement.COMPOUND_TYPE));
         if (fileFormat < FORMAT || missingParcelIds > 0) {
             map.rewriteRequired = true;
         }
@@ -989,11 +1026,11 @@ public final class ClaimMap {
         return extra;
     }
 
-    private static Result ok(Claim claim) {
+    static Result ok(Claim claim) {
         return new Result(Denial.NONE, claim, "");
     }
 
-    private static Result fail(Denial denial, @Nullable Claim claim, String subject) {
+    static Result fail(Denial denial, @Nullable Claim claim, String subject) {
         return new Result(denial, claim, subject == null ? "" : subject);
     }
 
@@ -1014,7 +1051,10 @@ public final class ClaimMap {
         SAME_PARCEL,
         ENTIRE_PARCEL,
         MIXED_PARCEL,
-        NAME_INVALID
+        NAME_INVALID,
+        NOT_FOR_SALE,
+        SALE_STALE,
+        WHOLE_ONLY
     }
 
     public record Result(Denial denial, @Nullable Claim claim, String subject) {

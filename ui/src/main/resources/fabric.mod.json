@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "landmod-ui",
+  "version": "${version}",
+  "name": "Land UI",
+  "description": "Optional client screen for picking 16x16 chunks or parcels on a map and completing a land purchase. Not required to join a server.",
+  "authors": ["heplus1s"],
+  "contact": {
+    "repo": "https://github.com/heplus1s/MinecraftLandMod"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.jdguo.land.ui.LandUiClient"
+    ]
+  },
+  "mixins": [
+    "landmod-ui.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*",
+    "landmod": "*"
+  },
+  "suggests": {
+    "xaeroworldmap": "*",
+    "xaerominimap": "*"
+  }
+}

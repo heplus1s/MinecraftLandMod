@@ -18,6 +18,8 @@ class CommandTextTest {
     void usageAndParcelSuggestionsStayInEnglish() {
         assertEnglish(LandMessages.USAGE);
         assertEnglish(LandMessages.PARCEL_USAGE);
+        assertEnglish(LandMessages.SELL_USAGE);
+        assertEnglish(LandMessages.BUY_USAGE);
         ParcelInfo info = new ParcelInfo(
                 UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
                 "市场",

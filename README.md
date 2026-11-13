@@ -154,17 +154,44 @@ Valuation uses the chunk count. `ParcelInfo.chunkCount()` is the number of 16×1
 
 Player commands do not seize land.
 
+## 可选的地图界面
+
+`landmod-ui-1.0.0.jar` 是单独的客户端包，不进银行界面，服务器也不需要装。不装它时，原版客户端、箱子界面和原来的命令都照常可用，进服不受影响。
+
+装了以后，默认按 K（控制设置里叫「领地」）会打开区块网格。如果同时装了 Xaero 世界地图，地图左上角有「领地」按钮，打开点选后可以在地图上点 16×16 区块或整块宗地，再点「购买」或「出售」。小地图设置里也有一颗「领地」按钮，打开同一张网格。
+
+出售和购买在服务端完成，走已经有的整块宗地转让，或把列出的区块拆出去再转让。聊天仍然是 `[领地]`。命令是：
+
+| 命令 | 作用 |
+| --- | --- |
+| `/land sell parcel` | 把脚下整块宗地标为出售 |
+| `/land sell chunks` | 把标记的区块，或脚下这一块，标为出售 |
+| `/land sell cancel` | 取消脚下宗地的出售 |
+| `/land buy` | 买下脚下的出售。整块在售就买整块，只卖这一块就买这一块 |
+| `/land buy parcel` | 买下脚下整块宗地 |
+| `/land buy chunks` | 买下标记的、或脚下这一块在售的区块 |
+
+没有标价。银行模组仍可用 `ClaimGate` 拦住没有托管单号的转让；地图和命令买地时带的单号是 `sale:` 加出售编号。
+
+`landmod-ui-1.0.0.jar` is a separate client mod. It is not part of a bank screen, and the server does not need it. Without it, a vanilla client, chest screens, and the existing commands still work, and joining is unchanged.
+
+With it, K opens a chunk grid (the control is named Land). If Xaero's World Map is also installed, the map has a Land button: turn picking on, click 16×16 chunks or a whole parcel, then Buy or Sell. Xaero's Minimap settings screen has a Land button that opens the same grid.
+
+The purchase runs on the server. A parcel listing transfers the whole parcel. A chunk listing splits those chunks off and transfers them. Chat stays `[领地]`. The commands are `/land sell parcel`, `/land sell chunks`, `/land sell cancel`, `/land buy`, `/land buy parcel`, and `/land buy chunks`.
+
+There is no price in this mod. A bank gate can still veto a transfer whose reference is not an escrow id. Map and command purchases pass `sale:` plus the listing id.
+
 ## 构建
 
 需要 Java 17。当前工程用 Java 21 运行 Gradle，编译目标是 17。
 
 ```
-./gradlew test remapJar
+./gradlew test remapJar :ui:remapJar
 ```
 
-给玩家或服务器用的是重映射后的 `build/libs/landmod-1.0.0.jar`，不是带 `-dev` 或 `-sources` 的那个。
+给玩家或服务器用的是重映射后的 `build/libs/landmod-1.0.0.jar`。可选的客户端界面是 `ui/build/libs/landmod-ui-1.0.0.jar`。都不要用带 `-dev` 或 `-sources` 的那个。
 
-Java 17 is the target. `./gradlew test remapJar` runs the tests and writes the remapped jar to `build/libs/landmod-1.0.0.jar`.
+Java 17 is the target. `./gradlew test remapJar :ui:remapJar` runs the tests and writes `build/libs/landmod-1.0.0.jar` plus `ui/build/libs/landmod-ui-1.0.0.jar`.
 
 ## 许可
 

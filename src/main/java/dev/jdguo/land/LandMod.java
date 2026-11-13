@@ -5,6 +5,7 @@ import dev.jdguo.land.command.LandCommands;
 import dev.jdguo.land.config.LandConfig;
 import dev.jdguo.land.network.ClaimSync;
 import dev.jdguo.land.protect.ClaimProtection;
+import dev.jdguo.land.trade.LandTrade;
 import dev.jdguo.land.world.ClaimSavedData;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -21,6 +22,7 @@ public final class LandMod implements ModInitializer {
         LandCommands.register();
         ClaimProtection.register();
         ClaimSync.register();
+        LandTrade.register();
         ChunkMarks.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             ClaimSavedData data = ClaimSavedData.get(server);

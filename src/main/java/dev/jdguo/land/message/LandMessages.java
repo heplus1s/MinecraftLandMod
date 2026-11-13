@@ -5,9 +5,11 @@ import net.minecraft.text.Text;
 public final class LandMessages {
     public static final String PREFIX = "[领地] ";
     public static final String USAGE =
-            "Usage: /land claim [join [parcel]] | abandon | info | list | trust <player> | untrust <player> | transfer <player> | mark [clear|list] | split [name] | split transfer <player> | parcel list | parcel info [parcel] | parcel rename <name> | parcel merge <parcel> | parcel transfer <player> | area [parcel]";
+            "Usage: /land claim [join [parcel]] | abandon | info | list | trust <player> | untrust <player> | transfer <player> | mark [clear|list] | split [name] | split transfer <player> | parcel list | parcel info [parcel] | parcel rename <name> | parcel merge <parcel> | parcel transfer <player> | sell parcel | sell chunks | sell cancel | buy [parcel|chunks] | area [parcel]";
     public static final String PARCEL_USAGE =
             "Usage: /land parcel list | info [parcel] | rename <name> | merge <parcel> | transfer <player>";
+    public static final String SELL_USAGE = "Usage: /land sell parcel | chunks | cancel";
+    public static final String BUY_USAGE = "Usage: /land buy [parcel|chunks]";
 
     private LandMessages() {
     }

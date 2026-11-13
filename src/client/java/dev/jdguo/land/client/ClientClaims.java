@@ -42,6 +42,10 @@ public final class ClientClaims {
         return view.parcelChunks(dimension, parcelId);
     }
 
+    public static List<Entry> parcelEntries(String dimension, UUID parcelId) {
+        return view.parcelEntries(dimension, parcelId);
+    }
+
     public record Entry(int chunkX, int chunkZ, UUID owner, String ownerName, String name, UUID parcelId) {
     }
 
@@ -132,6 +136,24 @@ public final class ClientClaims {
                 }
             }
             return count;
+        }
+
+        List<Entry> parcelEntries(String dimension, UUID parcelId) {
+            if (parcelId == null) {
+                return List.of();
+            }
+            Map<Long, Entry> inDimension = chunks.get(dimension);
+            if (inDimension == null) {
+                return List.of();
+            }
+            List<Entry> entries = new ArrayList<>();
+            for (Entry entry : inDimension.values()) {
+                if (parcelId.equals(entry.parcelId())) {
+                    entries.add(entry);
+                }
+            }
+            entries.sort(Comparator.comparingInt(Entry::chunkX).thenComparingInt(Entry::chunkZ));
+            return entries;
         }
 
         private static long key(int x, int z) {

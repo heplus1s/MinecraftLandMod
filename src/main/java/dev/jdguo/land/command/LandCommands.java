@@ -98,7 +98,16 @@ public final class LandCommands {
                         .executes(context -> area(context, null))
                         .then(CommandManager.argument("parcel", StringArgumentType.greedyString())
                                 .suggests(LandCommands::suggestParcels)
-                                .executes(context -> area(context, StringArgumentType.getString(context, "parcel"))))));
+                                .executes(context -> area(context, StringArgumentType.getString(context, "parcel")))))
+                .then(CommandManager.literal("sell")
+                        .executes(LandCommands::sellUsage)
+                        .then(CommandManager.literal("parcel").executes(LandCommands::sellParcel))
+                        .then(CommandManager.literal("chunks").executes(LandCommands::sellChunks))
+                        .then(CommandManager.literal("cancel").executes(LandCommands::sellCancel)))
+                .then(CommandManager.literal("buy")
+                        .executes(LandCommands::buyStanding)
+                        .then(CommandManager.literal("parcel").executes(LandCommands::buyParcel))
+                        .then(CommandManager.literal("chunks").executes(LandCommands::buyChunks))));
     }
 
     static String parcelSuggestionTooltip(ParcelInfo info) {
@@ -136,6 +145,78 @@ public final class LandCommands {
     private static int parcelUsage(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         player(context).sendMessage(Text.literal(LandMessages.PARCEL_USAGE), false);
         return 0;
+    }
+
+    private static int sellUsage(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        player(context).sendMessage(Text.literal(LandMessages.SELL_USAGE), false);
+        return 0;
+    }
+
+    private static int sellParcel(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = player(context);
+        ClaimSavedData data = ClaimSavedData.get(player.getServer());
+        Claim claim = standingClaim(player, data);
+        if (claim == null) {
+            return 0;
+        }
+        return data.sellParcel(player, claim.parcelId()).succeeded() ? 1 : 0;
+    }
+
+    private static int sellChunks(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = player(context);
+        boolean marked = ChunkMarks.size(player.getUuid()) > 0;
+        List<ClaimKey> keys = markedOrStanding(player);
+        ClaimMap.Result result = ClaimSavedData.get(player.getServer()).sellChunks(player, keys);
+        if (result.succeeded() && marked) {
+            ChunkMarks.clear(player.getUuid());
+        }
+        return result.succeeded() ? 1 : 0;
+    }
+
+    private static int sellCancel(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = player(context);
+        ClaimSavedData data = ClaimSavedData.get(player.getServer());
+        Claim claim = standingClaim(player, data);
+        if (claim == null) {
+            return 0;
+        }
+        return data.cancelSale(player, claim.parcelId()).succeeded() ? 1 : 0;
+    }
+
+    private static int buyStanding(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        return ClaimSavedData.get(player(context).getServer()).buyStanding(player(context)).succeeded() ? 1 : 0;
+    }
+
+    private static int buyParcel(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = player(context);
+        ClaimSavedData data = ClaimSavedData.get(player.getServer());
+        Claim claim = standingClaim(player, data);
+        if (claim == null) {
+            return 0;
+        }
+        return data.buyParcel(player, claim.parcelId()).succeeded() ? 1 : 0;
+    }
+
+    private static int buyChunks(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = player(context);
+        boolean marked = ChunkMarks.size(player.getUuid()) > 0;
+        List<ClaimKey> keys = markedOrStanding(player);
+        ClaimMap.Result result = ClaimSavedData.get(player.getServer()).buyChunks(player, keys);
+        if (result.succeeded() && marked) {
+            ChunkMarks.clear(player.getUuid());
+        }
+        return result.succeeded() ? 1 : 0;
+    }
+
+    private static Claim standingClaim(ServerPlayerEntity player, ClaimSavedData data) {
+        data.touch(player);
+        ClaimKey key = ClaimSavedData.standing(player);
+        Claim claim = data.claims().get(key.dimension(), key.chunkX(), key.chunkZ());
+        if (claim == null) {
+            say(player, "此处没有领地。");
+            return null;
+        }
+        return claim;
     }
 
     private static int claim(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {

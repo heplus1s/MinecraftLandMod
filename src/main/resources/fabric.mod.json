@@ -31,6 +31,7 @@
   },
   "suggests": {
     "xaeroworldmap": "*",
-    "xaerominimap": "*"
+    "xaerominimap": "*",
+    "landmod-ui": "*"
   }
 }

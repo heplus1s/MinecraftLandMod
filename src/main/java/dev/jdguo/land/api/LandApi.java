@@ -4,6 +4,7 @@ import dev.jdguo.land.claim.Claim;
 import dev.jdguo.land.claim.ClaimKey;
 import dev.jdguo.land.claim.ClaimMap;
 import dev.jdguo.land.claim.ParcelInfo;
+import dev.jdguo.land.claim.SaleInfo;
 import dev.jdguo.land.config.LandConfig;
 import dev.jdguo.land.integration.ClaimGate;
 import dev.jdguo.land.integration.ClaimGates;
@@ -68,6 +69,10 @@ public final class LandApi {
 
     public static List<ParcelInfo> parcelsOf(MinecraftServer server, UUID owner) {
         return claims(server).parcelsOwnedBy(owner);
+    }
+
+    public static List<SaleInfo> sales(MinecraftServer server) {
+        return claims(server).sales();
     }
 
     public static int chunkCount(MinecraftServer server, UUID parcelId) {

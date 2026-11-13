@@ -1,0 +1,66 @@
+plugins {
+    id "fabric-loom"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = "landmod-ui"
+}
+
+repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        filter {
+            includeGroup "maven.modrinth"
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // The land mod supplies claims, sales, and packets. It is not nested in this jar.
+    compileOnly(rootProject.sourceSets.main.output)
+    compileOnly(rootProject.sourceSets.client.output)
+
+    modCompileOnly "maven.modrinth:xaeros-world-map:${project.xaero_worldmap_version}"
+    modCompileOnly "maven.modrinth:xaeros-minimap:${project.xaero_minimap_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.named("compileJava") {
+    dependsOn(rootProject.tasks.named("compileJava"))
+    dependsOn(rootProject.tasks.named("compileClientJava"))
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = 17
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+jar {
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}

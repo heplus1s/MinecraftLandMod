@@ -3,7 +3,11 @@ package dev.jdguo.land.world;
 import dev.jdguo.land.claim.Claim;
 import dev.jdguo.land.claim.ClaimKey;
 import dev.jdguo.land.claim.ClaimMap;
+import dev.jdguo.land.claim.SaleInfo;
+import dev.jdguo.land.claim.SaleKind;
 import dev.jdguo.land.network.ClaimSync;
+import dev.jdguo.land.trade.LandTrade;
+import dev.jdguo.land.trade.SaleChat;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.server.MinecraftServer;
@@ -15,14 +19,6 @@ import net.minecraft.world.World;
 
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.World;
 
 /**
  * All dimensions share one file on the overworld: {@code data/landmod_claims.dat}.
@@ -182,6 +178,102 @@ public final class ClaimSavedData extends PersistentState {
         boolean changed = claims.putParcelFlag(parcelId, key, value);
         finish(changed);
         return changed;
+    }
+
+    public ClaimMap.Result sellParcel(ServerPlayerEntity player, UUID parcelId) {
+        return tracked(player, () -> claims.sellParcel(player.getUuid(), player.getGameProfile().getName(), parcelId), (result) -> {
+            SaleInfo sale = claims.saleOf(parcelId);
+            int chunks = sale == null ? 0 : sale.chunks().size();
+            SaleChat.Verb verb = sale != null && sale.kind() == SaleKind.CHUNKS ? SaleChat.Verb.SELL_CHUNKS : SaleChat.Verb.SELL_PARCEL;
+            SaleChat.reply(player, result, verb, chunks, null, null);
+        });
+    }
+
+    public ClaimMap.Result sellChunks(ServerPlayerEntity player, List<ClaimKey> keys) {
+        return tracked(player, () -> claims.sellChunks(player.getUuid(), player.getGameProfile().getName(), keys), (result) -> {
+            int chunks = keys == null ? 0 : keys.size();
+            if (result.succeeded() && result.claim() != null) {
+                SaleInfo sale = claims.saleOf(result.claim().parcelId());
+                if (sale != null) {
+                    chunks = sale.chunks().size();
+                    SaleChat.reply(player, result, sale.kind() == SaleKind.PARCEL ? SaleChat.Verb.SELL_PARCEL : SaleChat.Verb.SELL_CHUNKS, chunks, null, null);
+                    return;
+                }
+            }
+            SaleChat.reply(player, result, SaleChat.Verb.SELL_CHUNKS, chunks, null, null);
+        });
+    }
+
+    public ClaimMap.Result cancelSale(ServerPlayerEntity player, UUID parcelId) {
+        return tracked(player, () -> claims.cancelSale(player.getUuid(), parcelId),
+                result -> SaleChat.reply(player, result, SaleChat.Verb.CANCEL, 0, null, null));
+    }
+
+    public ClaimMap.Result buyParcel(ServerPlayerEntity player, UUID parcelId) {
+        SaleInfo before = claims.saleOf(parcelId);
+        int chunks = before == null ? 0 : before.chunks().size();
+        UUID seller = before == null ? null : before.seller();
+        String sellerName = before == null ? "" : before.sellerName();
+        return tracked(player, () -> claims.buyParcel(player.getUuid(), player.getGameProfile().getName(), parcelId, dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer()),
+                result -> SaleChat.reply(player, result, SaleChat.Verb.BUY_PARCEL, chunks, seller, sellerName));
+    }
+
+    public ClaimMap.Result buyChunks(ServerPlayerEntity player, List<ClaimKey> keys) {
+        SaleInfo before = keys == null || keys.isEmpty() ? null : saleOfKey(keys.get(0));
+        int chunks = keys == null ? 0 : keys.size();
+        UUID seller = before == null ? null : before.seller();
+        String sellerName = before == null ? "" : before.sellerName();
+        SaleChat.Verb verb = before != null && before.kind() == SaleKind.PARCEL ? SaleChat.Verb.BUY_PARCEL : SaleChat.Verb.BUY_CHUNKS;
+        int reported = before != null && before.kind() == SaleKind.PARCEL ? before.chunks().size() : chunks;
+        return tracked(player, () -> claims.buyChunks(player.getUuid(), player.getGameProfile().getName(), keys, dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer()),
+                result -> SaleChat.reply(player, result, verb, reported, seller, sellerName));
+    }
+
+    public ClaimMap.Result buyStanding(ServerPlayerEntity player) {
+        ClaimKey key = standing(player);
+        dev.jdguo.land.claim.Claim claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
+        if (claim == null) {
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("此处没有领地。"), false);
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        }
+        SaleInfo sale = claims.saleOf(claim.parcelId());
+        if (sale == null) {
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("这块地没有在出售。"), false);
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_FOR_SALE, claim, "");
+        }
+        if (sale.kind() == SaleKind.PARCEL) {
+            return buyParcel(player, sale.parcelId());
+        }
+        if (!sale.chunks().contains(key)) {
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("这块地没有在出售。"), false);
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_FOR_SALE, claim, "");
+        }
+        return buyChunks(player, List.of(key));
+    }
+
+    private SaleInfo saleOfKey(ClaimKey key) {
+        dev.jdguo.land.claim.Claim claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
+        if (claim == null) {
+            return null;
+        }
+        return claims.saleOf(claim.parcelId());
+    }
+
+    private ClaimMap.Result tracked(ServerPlayerEntity player, java.util.function.Supplier<ClaimMap.Result> action, java.util.function.Consumer<ClaimMap.Result> report) {
+        int claimsBefore = claims.revision();
+        int salesBefore = claims.saleRevision();
+        claims.updateName(player.getUuid(), player.getGameProfile().getName());
+        ClaimMap.Result result = action.get();
+        if (claims.revision() != claimsBefore) {
+            markDirty();
+            ClaimSync.broadcast(server);
+        }
+        if (claims.saleRevision() != salesBefore) {
+            markDirty();
+            LandTrade.broadcast(server);
+        }
+        report.accept(result);
+        return result;
     }
 
     public void touch(ServerPlayerEntity player) {
