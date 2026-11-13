@@ -38,7 +38,11 @@ public final class ClientClaims {
         return view.generation;
     }
 
-    public record Entry(int chunkX, int chunkZ, UUID owner, String ownerName, String name) {
+    public static int parcelChunks(String dimension, UUID parcelId) {
+        return view.parcelChunks(dimension, parcelId);
+    }
+
+    public record Entry(int chunkX, int chunkZ, UUID owner, String ownerName, String name, UUID parcelId) {
     }
 
     private static final class View {
@@ -58,7 +62,7 @@ public final class ClientClaims {
             Map<String, Map<Long, Entry>> chunks = new HashMap<>();
             Map<String, Map<Long, List<Entry>>> regions = new HashMap<>();
             for (ClaimSnapshot.PlacedClaim claim : snapshot.claims()) {
-                Entry entry = new Entry(claim.chunkX(), claim.chunkZ(), claim.owner(), claim.ownerName(), claim.name());
+                Entry entry = new Entry(claim.chunkX(), claim.chunkZ(), claim.owner(), claim.ownerName(), claim.name(), claim.parcelId());
                 chunks.computeIfAbsent(claim.dimension(), key -> new HashMap<>())
                         .put(key(claim.chunkX(), claim.chunkZ()), entry);
                 int regionX = claim.chunkX() >> 5;
@@ -108,8 +112,26 @@ public final class ClientClaims {
                 hash = 31 * hash + entry.owner().hashCode();
                 hash = 31 * hash + entry.ownerName().hashCode();
                 hash = 31 * hash + entry.name().hashCode();
+                hash = 31 * hash + entry.parcelId().hashCode();
             }
             return hash;
+        }
+
+        int parcelChunks(String dimension, UUID parcelId) {
+            if (parcelId == null) {
+                return 0;
+            }
+            Map<Long, Entry> inDimension = chunks.get(dimension);
+            if (inDimension == null) {
+                return 0;
+            }
+            int count = 0;
+            for (Entry entry : inDimension.values()) {
+                if (parcelId.equals(entry.parcelId())) {
+                    count++;
+                }
+            }
+            return count;
         }
 
         private static long key(int x, int z) {

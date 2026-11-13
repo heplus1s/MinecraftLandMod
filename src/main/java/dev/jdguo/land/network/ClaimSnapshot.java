@@ -11,7 +11,7 @@ import java.util.UUID;
  * Vanilla clients never receive the packet.
  */
 public record ClaimSnapshot(int generation, List<PlacedClaim> claims) {
-    public static final int PROTOCOL = 1;
+    public static final int PROTOCOL = 2;
     public static final ClaimSnapshot EMPTY = new ClaimSnapshot(0, List.of());
     private static final int MAX_CLAIMS = 1_000_000;
 
@@ -30,6 +30,7 @@ public record ClaimSnapshot(int generation, List<PlacedClaim> claims) {
             buf.writeUuid(claim.owner());
             buf.writeString(claim.ownerName());
             buf.writeString(claim.name());
+            buf.writeUuid(claim.parcelId());
         }
     }
 
@@ -51,11 +52,12 @@ public record ClaimSnapshot(int generation, List<PlacedClaim> claims) {
                     buf.readInt(),
                     buf.readUuid(),
                     buf.readString(),
-                    buf.readString()));
+                    buf.readString(),
+                    buf.readUuid()));
         }
         return new ClaimSnapshot(generation, claims);
     }
 
-    public record PlacedClaim(String dimension, int chunkX, int chunkZ, UUID owner, String ownerName, String name) {
+    public record PlacedClaim(String dimension, int chunkX, int chunkZ, UUID owner, String ownerName, String name, UUID parcelId) {
     }
 }

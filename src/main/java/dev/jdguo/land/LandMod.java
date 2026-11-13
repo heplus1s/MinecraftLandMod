@@ -1,5 +1,6 @@
 package dev.jdguo.land;
 
+import dev.jdguo.land.command.ChunkMarks;
 import dev.jdguo.land.command.LandCommands;
 import dev.jdguo.land.config.LandConfig;
 import dev.jdguo.land.network.ClaimSync;
@@ -20,9 +21,13 @@ public final class LandMod implements ModInitializer {
         LandCommands.register();
         ClaimProtection.register();
         ClaimSync.register();
+        ChunkMarks.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            int count = ClaimSavedData.get(server).claims().size();
-            LOGGER.info("Loaded {} land claims", count);
+            ClaimSavedData data = ClaimSavedData.get(server);
+            if (data.claims().consumeRewrite()) {
+                data.markDirty();
+            }
+            LOGGER.info("Loaded {} land claims in {} parcels", data.claims().size(), data.claims().parcelCount());
         });
     }
 }

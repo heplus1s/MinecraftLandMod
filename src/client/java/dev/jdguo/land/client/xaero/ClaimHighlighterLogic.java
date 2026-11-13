@@ -11,6 +11,7 @@ import java.util.UUID;
 /**
  * Colors and tooltip text shared by the world map and minimap highlighters.
  * Your own claims are green. Other players' claims are orange.
+ * A border is drawn where the parcel changes, even when both sides have the same owner.
  */
 public final class ClaimHighlighterLogic {
     public static final int OWN_FILL = 0x6635D06A;
@@ -48,10 +49,10 @@ public final class ClaimHighlighterLogic {
         int fill = own ? OWN_FILL : OTHER_FILL;
         int edge = own ? OWN_EDGE : OTHER_EDGE;
         store[0] = fill;
-        store[1] = border(dim, chunkX, chunkZ - 1, entry.owner()) ? edge : fill;
-        store[2] = border(dim, chunkX + 1, chunkZ, entry.owner()) ? edge : fill;
-        store[3] = border(dim, chunkX, chunkZ + 1, entry.owner()) ? edge : fill;
-        store[4] = border(dim, chunkX - 1, chunkZ, entry.owner()) ? edge : fill;
+        store[1] = border(dim, chunkX, chunkZ - 1, entry.parcelId()) ? edge : fill;
+        store[2] = border(dim, chunkX + 1, chunkZ, entry.parcelId()) ? edge : fill;
+        store[3] = border(dim, chunkX, chunkZ + 1, entry.parcelId()) ? edge : fill;
+        store[4] = border(dim, chunkX - 1, chunkZ, entry.parcelId()) ? edge : fill;
         return true;
     }
 
@@ -61,15 +62,18 @@ public final class ClaimHighlighterLogic {
             return null;
         }
         String owner = entry.ownerName().isBlank() ? "未知" : entry.ownerName();
+        int chunks = ClientClaims.parcelChunks(dimension.getValue().toString(), entry.parcelId());
+        String size = Math.max(chunks, 1) + " 块";
         if (entry.name().isBlank()) {
-            return Text.literal(owner + " 的领地");
+            String shortId = entry.parcelId().toString().replace("-", "").substring(0, 8);
+            return Text.literal(owner + " 的领地 · " + size + " · " + shortId);
         }
-        return Text.literal(entry.name() + "（" + owner + "）");
+        return Text.literal(entry.name() + "（" + owner + "） · " + size);
     }
 
-    private static boolean border(String dimension, int chunkX, int chunkZ, UUID owner) {
+    private static boolean border(String dimension, int chunkX, int chunkZ, UUID parcelId) {
         ClientClaims.Entry neighbor = ClientClaims.get(dimension, chunkX, chunkZ);
-        return neighbor == null || !neighbor.owner().equals(owner);
+        return neighbor == null || parcelId == null || !parcelId.equals(neighbor.parcelId());
     }
 
     private static UUID selfId() {

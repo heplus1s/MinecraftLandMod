@@ -10,9 +10,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * One claimed chunk. Members belong to this chunk only.
- * {@code name} is optional display text. {@code flags} and {@code extra} are
- * reserved storage: flags for later shop or debt markers, extra for any NBT
+ * One claimed chunk, the smallest piece of land this mod stores.
+ * Chunks are native 16×16 columns. A parcel is one or more of these chunks
+ * sharing a {@code parcelId}. Members belong to this chunk only.
+ * {@code name} mirrors the parcel's display name. {@code flags} and {@code extra}
+ * are reserved storage: flags for later shop or debt markers, extra for any NBT
  * key this version does not know so a newer save can be loaded and written
  * again without dropping those keys.
  */
@@ -20,6 +22,7 @@ public final class Claim {
     private final String dimension;
     private final int chunkX;
     private final int chunkZ;
+    private UUID parcelId;
     private UUID owner;
     private String ownerName;
     private String name;
@@ -27,11 +30,12 @@ public final class Claim {
     private final NbtCompound flags;
     private final NbtCompound extra;
 
-    public Claim(String dimension, int chunkX, int chunkZ, UUID owner, String ownerName, String name,
+    public Claim(String dimension, int chunkX, int chunkZ, UUID parcelId, UUID owner, String ownerName, String name,
                  LinkedHashMap<UUID, Member> members, NbtCompound flags, NbtCompound extra) {
         this.dimension = Objects.requireNonNull(dimension, "dimension");
         this.chunkX = chunkX;
         this.chunkZ = chunkZ;
+        this.parcelId = Objects.requireNonNull(parcelId, "parcel");
         this.owner = Objects.requireNonNull(owner, "owner");
         this.ownerName = ownerName == null ? "" : ownerName;
         this.name = name == null ? "" : name;
@@ -54,6 +58,10 @@ public final class Claim {
 
     public int chunkZ() {
         return chunkZ;
+    }
+
+    public UUID parcelId() {
+        return parcelId;
     }
 
     public UUID owner() {
@@ -86,6 +94,10 @@ public final class Claim {
 
     public void putFlag(String key, NbtElement value) {
         flags.put(key, value.copy());
+    }
+
+    void setParcel(UUID parcelId) {
+        this.parcelId = Objects.requireNonNull(parcelId, "parcel");
     }
 
     void setOwner(UUID owner, String ownerName) {

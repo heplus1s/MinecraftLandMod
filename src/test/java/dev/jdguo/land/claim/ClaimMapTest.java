@@ -2,6 +2,7 @@ package dev.jdguo.land.claim;
 
 import dev.jdguo.land.integration.ClaimGate;
 import dev.jdguo.land.integration.ClaimGates;
+import dev.jdguo.land.integration.LandEvents;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,7 @@ class ClaimMapTest {
     @AfterEach
     void resetGates() {
         ClaimGates.resetForTests();
+        LandEvents.resetForTests();
     }
 
     @Test

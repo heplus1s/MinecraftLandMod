@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClaimCodecTest {
@@ -26,7 +27,7 @@ class ClaimCodecTest {
         ClaimMap map = new ClaimMap();
         assertTrue(map.claim("minecraft:the_end", -4, 12, ALICE, "爱丽", 8).succeeded());
         Claim claim = map.get("minecraft:the_end", -4, 12);
-        claim.setName("市场");
+        assertTrue(map.renameParcel(ALICE, claim.parcelId(), "市场").succeeded());
         claim.putFlag("debt", NbtString.of("12"));
         assertTrue(map.trust("minecraft:the_end", -4, 12, ALICE, BOB, "鲍勃").succeeded());
 
@@ -54,12 +55,16 @@ class ClaimCodecTest {
         claims.add(claim);
         root.put("Claims", claims);
 
-        Claim loaded = ClaimMap.fromNbt(root).get("minecraft:overworld", 1, 2);
+        ClaimMap map = ClaimMap.fromNbt(root);
+        Claim loaded = map.get("minecraft:overworld", 1, 2);
         assertNotNull(loaded);
+        assertNotNull(loaded.parcelId());
+        assertEquals(1, map.parcelCount());
         assertEquals("", loaded.ownerName());
         assertEquals("", loaded.name());
         assertTrue(loaded.members().isEmpty());
         assertTrue(loaded.flags().isEmpty());
+        assertTrue(map.needsRewrite());
     }
 
     @Test
@@ -124,7 +129,8 @@ class ClaimCodecTest {
     void snapshotPacketRoundTrip() {
         ClaimMap map = new ClaimMap();
         assertTrue(map.claim("minecraft:overworld", -8, 3, ALICE, "Alice", 4).succeeded());
-        map.get("minecraft:overworld", -8, 3).setName("家");
+        Claim stored = map.get("minecraft:overworld", -8, 3);
+        assertTrue(map.renameParcel(ALICE, stored.parcelId(), "家").succeeded());
         ClaimSnapshot snapshot = map.toSnapshot();
         PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
         snapshot.write(buf);
@@ -138,6 +144,14 @@ class ClaimCodecTest {
         assertEquals(ALICE, claim.owner());
         assertEquals("Alice", claim.ownerName());
         assertEquals("家", claim.name());
+        assertEquals(stored.parcelId(), claim.parcelId());
         assertFalse(buf.isReadable());
+    }
+
+    @Test
+    void olderSyncProtocolIsRejected() {
+        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+        buf.writeVarInt(1);
+        assertThrows(IllegalArgumentException.class, () -> ClaimSnapshot.read(buf));
     }
 }

@@ -3,7 +3,7 @@
   "id": "landmod",
   "version": "${version}",
   "name": "Land",
-  "description": "Chunk-based land claims for Fabric 1.20.1. Protection runs on the server; joining players do not need this mod. Optional Xaero map overlay when the client has it.",
+  "description": "Chunk parcels for Fabric 1.20.1. Each parcel is one or more 16x16 chunks. Protection runs on the server; joining players do not need this mod. Optional Xaero map overlay when the client has it.",
   "authors": [
     "heplus1s"
   ],

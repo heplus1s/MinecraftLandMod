@@ -10,4 +10,5 @@ out/
 bin/
 .vscode/
 *.log
+logs/
 .DS_Store
