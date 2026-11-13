@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.jdguo.land.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "plugin": "dev.jdguo.land.mixin.LandMixinPlugin",
+  "mixins": [
+    "ExplosionMixin"
+  ],
+  "client": [
+    "client.WorldMapRegistryMixin",
+    "client.MinimapRegistryMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "landmod",
+  "version": "${version}",
+  "name": "Land",
+  "description": "Chunk-based land claims for Fabric 1.20.1. Protection runs on the server; joining players do not need this mod. Optional Xaero map overlay when the client has it.",
+  "authors": [
+    "heplus1s"
+  ],
+  "contact": {
+    "repo": "https://github.com/heplus1s/MinecraftLandMod"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.jdguo.land.LandMod"
+    ],
+    "client": [
+      "dev.jdguo.land.client.LandClient"
+    ]
+  },
+  "mixins": [
+    "landmod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "xaeroworldmap": "*",
+    "xaerominimap": "*"
+  }
+}
