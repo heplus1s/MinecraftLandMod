@@ -264,6 +264,7 @@ public final class ClaimSavedData extends PersistentState {
         int salesBefore = claims.saleRevision();
         claims.updateName(player.getUuid(), player.getGameProfile().getName());
         ClaimMap.Result result = action.get();
+        claims.sales();
         if (claims.revision() != claimsBefore) {
             markDirty();
             ClaimSync.broadcast(server);
@@ -294,8 +295,11 @@ public final class ClaimSavedData extends PersistentState {
         if (!changed) {
             return;
         }
+        // Ordinary transfers, abandon, join, split and merge can invalidate offers.
+        claims.sales();
         markDirty();
         ClaimSync.broadcast(server);
+        LandTrade.broadcast(server);
     }
 
     public static ClaimKey standing(ServerPlayerEntity player) {
