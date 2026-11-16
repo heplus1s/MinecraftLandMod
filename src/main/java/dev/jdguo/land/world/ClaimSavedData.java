@@ -31,6 +31,7 @@ public final class ClaimSavedData extends PersistentState {
     private final MinecraftServer server;
     private final ClaimMap claims;
     private NbtCompound initialGrants = new NbtCompound();
+    private NbtCompound marketTransfers = new NbtCompound();
     private final java.util.Set<String> unflushedGrants = new java.util.HashSet<>();
 
     private ClaimSavedData(MinecraftServer server, ClaimMap claims) {
@@ -50,6 +51,7 @@ public final class ClaimSavedData extends PersistentState {
         ClaimMap loaded = ClaimMap.fromNbt(nbt);
         ClaimSavedData data = new ClaimSavedData(server, loaded);
         data.initialGrants = nbt.getCompound("InitialGrants").copy();
+        data.marketTransfers = nbt.getCompound("MarketTransfers").copy();
         if (loaded.needsRewrite()) {
             data.markDirty();
         }
@@ -100,6 +102,68 @@ public final class ClaimSavedData extends PersistentState {
             unflushedGrants.add(reference);
             dev.jdguo.land.LandMod.LOGGER.error("Initial land grant awaiting durable save: {}", reference, failure);
             markDirty();
+            return false;
+        }
+    }
+
+    /** A receipt is committed in the same file as ownership, before market may forget its PAID journal. */
+    public String marketTransfer(UUID actor, UUID buyer, String buyerName, UUID parcelId,
+                                 List<ClaimKey> keys, boolean whole, String reference) {
+        if (keys == null || keys.isEmpty() || keys.size() > 1024 || keys.stream().anyMatch(java.util.Objects::isNull)
+                || new java.util.HashSet<>(keys).size() != keys.size()) return "rejected:selection";
+        List<ClaimKey> canonical = keys.stream().sorted(java.util.Comparator.comparing(ClaimKey::dimension)
+                .thenComparingInt(ClaimKey::chunkX).thenComparingInt(ClaimKey::chunkZ)).toList();
+        StringBuilder terms = new StringBuilder(actor + "|" + buyer + "|" + parcelId + "|" + whole);
+        for (ClaimKey key : canonical) terms.append('|').append(key.dimension().length()).append(':')
+                .append(key.dimension()).append(':').append(key.chunkX()).append(',').append(key.chunkZ());
+        String fingerprint = terms.toString();
+        if (marketTransfers.contains(reference)) {
+            if (!fingerprint.equals(marketTransfers.getString(reference))) return "conflict";
+            return flushMarketTransfer(reference) ? "applied" : "pending";
+        }
+        // Legacy PAID recovery may already have performed its handoff. Never refund or replay
+        // from current ownership alone: somebody may have transferred the land again meanwhile.
+        boolean sellerOwns = canonical.stream().allMatch(key -> {
+            Claim claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
+            return claim != null && actor.equals(claim.owner()) && parcelId.equals(claim.parcelId());
+        });
+        if (!sellerOwns) return "pending";
+        if (whole) {
+            var parcel = claims.info(parcelId);
+            if (parcel == null || !new java.util.HashSet<>(parcel.chunks()).equals(new java.util.HashSet<>(canonical)))
+                return "rejected:SALE_STALE";
+        }
+        ClaimMap.Result result;
+        try {
+            result = whole ? claims.transferParcel(actor, parcelId, buyer, buyerName,
+                    dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer(), reference)
+                    : claims.transferChunks(actor, canonical, buyer, buyerName,
+                    dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer(), reference);
+        } catch (RuntimeException unknown) {
+            // A listener may throw after ownership changed. Do not make a false rejection.
+            markDirty();
+            return "pending";
+        }
+        if (!result.succeeded()) return "rejected:" + result.denial();
+        marketTransfers.putString(reference, fingerprint);
+        markDirty();
+        boolean durable = flushMarketTransfer(reference);
+        ClaimSync.broadcast(server);
+        LandTrade.broadcast(server);
+        return durable ? "applied" : "pending";
+    }
+
+    private boolean flushMarketTransfer(String reference) {
+        java.nio.file.Path file = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).resolve("data").resolve(ID + ".dat");
+        try {
+            DurableLandState.save(file, writeNbt(new NbtCompound()),
+                    net.minecraft.SharedConstants.getGameVersion().getSaveVersion().getId());
+            unflushedGrants.clear();
+            setDirty(false);
+            return true;
+        } catch (java.io.IOException | RuntimeException failure) {
+            markDirty();
+            dev.jdguo.land.LandMod.LOGGER.error("Land transfer awaiting durable save: {}", reference, failure);
             return false;
         }
     }
@@ -359,6 +423,7 @@ public final class ClaimSavedData extends PersistentState {
             }
         }
         nbt.put("InitialGrants", initialGrants.copy());
+        nbt.put("MarketTransfers", marketTransfers.copy());
         return nbt;
     }
 }
