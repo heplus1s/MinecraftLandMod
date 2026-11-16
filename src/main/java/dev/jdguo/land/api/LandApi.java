@@ -92,6 +92,18 @@ public final class LandApi {
         return result;
     }
 
+    /** Market-only server API; an applied receipt survives later gifts, splits and resales. */
+    public static String marketTransfer(MinecraftServer server, UUID actor, UUID buyer, String buyerName,
+                                        UUID parcelId, String dimension, int[] coordinates, boolean whole, String reference) {
+        if (server == null || !server.isOnThread()) return "pending";
+        if (actor == null || buyer == null || parcelId == null || reference == null || reference.isBlank()
+                || reference.length() > 160 || actor.equals(buyer)) return "rejected:SELF";
+        try {
+            return saved(server).marketTransfer(actor, buyer, buyerName, parcelId,
+                    initialKeys(server, dimension, coordinates, false), whole, reference);
+        } catch (IllegalArgumentException invalid) { return "pending"; }
+    }
+
     public static @Nullable ParcelInfo parcel(MinecraftServer server, UUID parcelId) {
         return claims(server).info(parcelId);
     }
