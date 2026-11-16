@@ -12,7 +12,11 @@ import net.minecraft.text.Text;
  */
 public final class LandBoardScreen extends Screen {
     private static final int RADIUS = 6;
-    private static final int CELL = 14;
+    private LandBoardLayout layout;
+    private int cell;
+    private int originX;
+    private int originY;
+    private boolean centered;
 
     private final Screen parent;
     private int centerX;
@@ -26,25 +30,35 @@ public final class LandBoardScreen extends Screen {
 
     @Override
     protected void init() {
-        if (client != null && client.player != null) {
+        if (!centered && client != null && client.player != null) {
             centerX = client.player.getBlockX() >> 4;
             centerZ = client.player.getBlockZ() >> 4;
             dimension = client.player.getWorld().getRegistryKey().getValue().toString();
+            centered = true;
         }
-        int y = this.height - 28;
+        int span = RADIUS * 2 + 1;
+        layout = LandBoardLayout.fit(width, height, span);
+        cell = layout.cell();
+        originX = layout.x();
+        originY = layout.y();
+        addDrawableChild(ButtonWidget.builder(Text.literal("管理"), button -> client.setScreen(new LandManageScreen(this)))
+                .dimensions(Math.min(width - 58, width / 2 + 30), 16, 50, 20).build());
+        int y = this.height - 48;
+        int buttonWidth = Math.min(70, (width - 24) / 3);
+        int left = (width - 3 * buttonWidth - 8) / 2;
         addDrawableChild(ButtonWidget.builder(Text.literal(LandPick.mode() == LandPick.Mode.PARCEL ? "宗地" : "区块"), button -> {
             LandPick.toggleMode();
             button.setMessage(Text.literal(LandPick.mode() == LandPick.Mode.PARCEL ? "宗地" : "区块"));
-        }).dimensions(8, y, 50, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("购买"), button -> LandTradeClient.buy(client)).dimensions(62, y, 50, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("出售"), button -> LandTradeClient.sell(client)).dimensions(116, y, 50, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("停售"), button -> LandTradeClient.cancel(client)).dimensions(170, y, 50, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("清除"), button -> LandPick.clear()).dimensions(224, y, 50, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("返回"), button -> close()).dimensions(this.width - 58, y, 50, 20).build());
+        }).dimensions(left, y, buttonWidth, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("购买"), button -> LandTradeClient.buy(client)).dimensions(left + buttonWidth + 4, y, buttonWidth, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("出售"), button -> LandTradeClient.sell(client)).dimensions(left + 2 * (buttonWidth + 4), y, buttonWidth, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("停售"), button -> LandTradeClient.cancel(client)).dimensions(left, y + 24, buttonWidth, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("清除"), button -> LandPick.clear()).dimensions(left + buttonWidth + 4, y + 24, buttonWidth, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("返回"), button -> close()).dimensions(left + 2 * (buttonWidth + 4), y + 24, buttonWidth, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("北"), button -> centerZ -= RADIUS).dimensions(this.width / 2 - 12, 18, 24, 16).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("南"), button -> centerZ += RADIUS).dimensions(this.width / 2 - 12, this.height - 48, 24, 16).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("西"), button -> centerX -= RADIUS).dimensions(8, 80, 24, 16).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("东"), button -> centerX += RADIUS).dimensions(this.width - 32, 80, 24, 16).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("南"), button -> centerZ += RADIUS).dimensions(this.width / 2 - 12, originY + span * cell + 4, 24, 16).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("西"), button -> centerX -= RADIUS).dimensions(originX - 28, originY + span * cell / 2 - 8, 24, 16).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("东"), button -> centerX += RADIUS).dimensions(originX + span * cell + 4, originY + span * cell / 2 - 8, 24, 16).build());
     }
 
     @Override
@@ -56,18 +70,19 @@ public final class LandBoardScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) return true;
         if (button == 0 && pick(mouseX, mouseY)) {
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
 
     private boolean pick(double mouseX, double mouseY) {
         int span = RADIUS * 2 + 1;
-        int originX = (this.width - span * CELL) / 2;
-        int originY = 40;
-        int col = (int) ((mouseX - originX) / CELL);
-        int row = (int) ((mouseY - originY) / CELL);
+
+        if (!layout.contains(mouseX, mouseY)) return false;
+        int col = (int) ((mouseX - originX) / cell);
+        int row = (int) ((mouseY - originY) / cell);
         if (col < 0 || row < 0 || col >= span || row >= span) {
             return false;
         }
@@ -78,25 +93,29 @@ public final class LandBoardScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context);
-        super.render(context, mouseX, mouseY, delta);
+
         int span = RADIUS * 2 + 1;
-        int originX = (this.width - span * CELL) / 2;
-        int originY = 40;
+
         context.drawTextWithShadow(textRenderer, "已选 " + LandPick.selected().size() + " 块", 8, 4, 0xFFFFFF);
         for (int row = 0; row < span; row++) {
             for (int col = 0; col < span; col++) {
                 int chunkX = centerX + col - RADIUS;
                 int chunkZ = centerZ + row - RADIUS;
-                int x = originX + col * CELL;
-                int y = originY + row * CELL;
-                context.fill(x, y, x + CELL - 1, y + CELL - 1, color(chunkX, chunkZ));
+                int x = originX + col * cell;
+                int y = originY + row * cell;
+                context.fill(x, y, x + cell - 1, y + cell - 1, color(chunkX, chunkZ));
             }
         }
-        context.drawTextWithShadow(textRenderer, modeLine(), 8, this.height - 44, 0xDDDDDD);
+        context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(LandQuotes.summary(), width - 16), 8, this.height - 72, 0xDDDDDD);
+        context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth("中心区块 " + centerX + ", " + centerZ + " · 每格 16×16 方块", width - 16), 8, this.height - 60, 0xAAAAAA);
+        super.render(context, mouseX, mouseY, delta);
+        if (mouseY >= height - 74 && mouseY <= height - 62) {
+            context.drawTooltip(textRenderer, Text.literal(LandQuotes.summary()), mouseX, mouseY);
+        }
     }
 
     private String modeLine() {
-        return (LandPick.mode() == LandPick.Mode.PARCEL ? "宗地模式" : "区块模式") + " · 黄色为在售";
+        return (LandPick.mode() == LandPick.Mode.PARCEL ? "宗地模式" : "区块模式") + " · 灰色未记录，价格以市场确认为准";
     }
 
     private int color(int chunkX, int chunkZ) {

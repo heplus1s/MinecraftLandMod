@@ -9,6 +9,17 @@ import java.util.UUID;
 /** Optional server-only bridge. A missing/old market must never fall back to free acquisition. */
 public final class MarketTradeBridge {
     private MarketTradeBridge() {}
+    public static boolean initialEnabled(net.minecraft.server.MinecraftServer server) {
+        try {
+            return (Boolean) Class.forName("dev.jdguo.market.api.LandMarketTerminal")
+                    .getMethod("initialEnabled", net.minecraft.server.MinecraftServer.class).invoke(null, server);
+        } catch (ClassNotFoundException | NoSuchMethodException legacy) {
+            return false; // No market policy exists on a legacy/no-market server.
+        } catch (ReflectiveOperationException | LinkageError failure) {
+            return true; // A failed policy read must not turn a paid claim into a free one.
+        }
+    }
+
     public static void open(ServerPlayerEntity player, UUID parcel, String action, List<ClaimKey> keys) {
         int[] coordinates = new int[keys.size() * 2];
         for (int i = 0; i < keys.size(); i++) {

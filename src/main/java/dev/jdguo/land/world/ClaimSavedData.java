@@ -30,6 +30,8 @@ public final class ClaimSavedData extends PersistentState {
 
     private final MinecraftServer server;
     private final ClaimMap claims;
+    private NbtCompound initialGrants = new NbtCompound();
+    private final java.util.Set<String> unflushedGrants = new java.util.HashSet<>();
 
     private ClaimSavedData(MinecraftServer server, ClaimMap claims) {
         this.server = server;
@@ -47,10 +49,59 @@ public final class ClaimSavedData extends PersistentState {
     private static ClaimSavedData load(MinecraftServer server, NbtCompound nbt) {
         ClaimMap loaded = ClaimMap.fromNbt(nbt);
         ClaimSavedData data = new ClaimSavedData(server, loaded);
+        data.initialGrants = nbt.getCompound("InitialGrants").copy();
         if (loaded.needsRewrite()) {
             data.markDirty();
         }
         return data;
+    }
+
+    public String initialGrantStatus(String reference) {
+        if (!initialGrants.contains(reference)) return "missing";
+        return unflushedGrants.contains(reference) ? "pending" : "applied";
+    }
+
+    public String initialGrant(UUID buyer, List<ClaimKey> keys, String fingerprint, String reference) {
+        if (initialGrants.contains(reference)) {
+            if (!initialGrants.getString(reference).equals(fingerprint)) return "conflict";
+            return flushGrant(reference) ? "applied" : "pending";
+        }
+        String name = server.getPlayerManager().getPlayer(buyer) == null ? buyer.toString()
+                : server.getPlayerManager().getPlayer(buyer).getGameProfile().getName();
+        var result = claims.initialGrant(keys, buyer, name, dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer());
+        if (!result.succeeded()) return "rejected:" + result.subject();
+        initialGrants.putString(reference, fingerprint);
+        unflushedGrants.add(reference);
+        markDirty();
+        boolean durable = flushGrant(reference);
+        ClaimSync.broadcast(server);
+        LandTrade.broadcast(server);
+        return durable ? "applied" : "pending";
+    }
+
+    /** Atomically replace the same PersistentState file, acknowledge only after read-back. */
+    private boolean flushGrant(String reference) {
+        java.nio.file.Path file = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).resolve("data").resolve(ID + ".dat");
+        java.nio.file.Path temp = file.resolveSibling(ID + ".initial.tmp");
+        try {
+            java.nio.file.Files.createDirectories(file.getParent());
+            NbtCompound root = new NbtCompound();
+            root.put("data", writeNbt(new NbtCompound()));
+            root.putInt("DataVersion", net.minecraft.SharedConstants.getGameVersion().getSaveVersion().getId());
+            net.minecraft.nbt.NbtIo.writeCompressed(root, temp.toFile());
+            try (var channel = java.nio.channels.FileChannel.open(temp, java.nio.file.StandardOpenOption.WRITE)) { channel.force(true); }
+            java.nio.file.Files.move(temp, file, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            var check = net.minecraft.nbt.NbtIo.readCompressed(file.toFile());
+            if (!check.getCompound("data").getCompound("InitialGrants").getString(reference).equals(initialGrants.getString(reference))) return false;
+            unflushedGrants.clear();
+            setDirty(false);
+            return true;
+        } catch (java.io.IOException | RuntimeException failure) {
+            unflushedGrants.add(reference);
+            dev.jdguo.land.LandMod.LOGGER.error("Initial land grant awaiting durable save: {}", reference, failure);
+            markDirty();
+            return false;
+        }
     }
 
     public ClaimMap claims() {
@@ -59,6 +110,9 @@ public final class ClaimSavedData extends PersistentState {
 
     public ClaimMap.Result claim(ServerPlayerEntity player, int maxClaims) {
         ClaimKey key = standing(player);
+        if (dev.jdguo.land.integration.MarketTradeBridge.initialEnabled(server)) {
+            return marketChunks(player, List.of(key), "buy");
+        }
         boolean renamed = claims.updateName(player.getUuid(), player.getGameProfile().getName());
         ClaimMap.Result result = claims.claim(key.dimension(), key.chunkX(), key.chunkZ(),
                 player.getUuid(), player.getGameProfile().getName(), maxClaims);
@@ -103,6 +157,10 @@ public final class ClaimSavedData extends PersistentState {
 
     public ClaimMap.Result claimJoin(ServerPlayerEntity player, UUID parcelId, int maxClaims) {
         ClaimKey key = standing(player);
+        if (dev.jdguo.land.integration.MarketTradeBridge.initialEnabled(server)) {
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("此服务器已启用付费初售。请先购买新区块，再合并宗地。"), false);
+            return marketChunks(player, List.of(key), "buy");
+        }
         boolean renamed = claims.updateName(player.getUuid(), player.getGameProfile().getName());
         ClaimMap.Result result = claims.claimJoin(key.dimension(), key.chunkX(), key.chunkZ(),
                 player.getUuid(), player.getGameProfile().getName(), maxClaims, parcelId);
@@ -207,13 +265,24 @@ public final class ClaimSavedData extends PersistentState {
     }
 
     private ClaimMap.Result marketChunks(ServerPlayerEntity player, List<ClaimKey> keys, String action) {
-        if (keys == null || keys.isEmpty()) return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        if (keys == null || keys.isEmpty()) {
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("还没有选中区块。"), false);
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        }
         var first = claims.get(keys.get(0).dimension(), keys.get(0).chunkX(), keys.get(0).chunkZ());
-        if (first == null) return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        if (first == null && action.equals("buy") && keys.stream().allMatch(key -> claims.get(key.dimension(), key.chunkX(), key.chunkZ()) == null)) {
+            return market(player, null, "buy", keys);
+        }
+        if (first == null) {
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("选中的是未认领区块，没有可购买的市场挂牌。无主地认领与二手地购买是不同操作。"), false);
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        }
         for (ClaimKey key : keys) {
             var claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
-            if (claim == null || !claim.parcelId().equals(first.parcelId()))
+            if (claim == null || !claim.parcelId().equals(first.parcelId())) {
+                player.sendMessage(dev.jdguo.land.message.LandMessages.chat("请只选择同一宗地内的区块；不同宗地需分别交易。"), false);
                 return new ClaimMap.Result(ClaimMap.Denial.MIXED_PARCEL, null, "");
+            }
         }
         return market(player, first.parcelId(), action, keys);
     }
@@ -289,6 +358,7 @@ public final class ClaimSavedData extends PersistentState {
                 nbt.put(key, value.copy());
             }
         }
+        nbt.put("InitialGrants", initialGrants.copy());
         return nbt;
     }
 }
