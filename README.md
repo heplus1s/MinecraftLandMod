@@ -186,12 +186,12 @@ There is no price in this mod. A bank gate can still veto a transfer whose refer
 需要 Java 17。当前工程用 Java 21 运行 Gradle，编译目标是 17。
 
 ```
-./gradlew test remapJar :ui:remapJar
+./gradlew build
 ```
 
-给玩家或服务器用的是重映射后的 `build/libs/landmod-1.0.0.jar`。可选的客户端界面是 `ui/build/libs/landmod-ui-1.0.0.jar`。都不要用带 `-dev` 或 `-sources` 的那个。
+给玩家或服务器用的是重映射后的 `build/libs/landmod-1.0.0.jar`。客户端界面已内置于同一个主模组 JAR。都不要用带 `-dev` 或 `-sources` 的那个。
 
-Java 17 is the target. `./gradlew test remapJar :ui:remapJar` runs the tests and writes `build/libs/landmod-1.0.0.jar` plus `ui/build/libs/landmod-ui-1.0.0.jar`.
+Java 17 is the target. `./gradlew build` runs the tests and writes `build/libs/landmod-1.0.0.jar` with the optional client UI embedded.
 
 ## 许可
 
@@ -202,3 +202,12 @@ MIT License. Copyright (c) 2026 heplus1s.
 此版本将 `/land sell parcel`、`/land sell chunks`、`/land buy`、地图交易请求和撤销请求交给兼容市场模组的原版箱子确认页。卖方确认价格及货币后才挂牌；买方确认市场整单总价后才通过银行扣款并过户。打开页面不等于成交，不清除选区。不安装或未更新市场时拒绝交易，绝不回退到免费购买。
 
 旧版无价格销售记录不会被自动定价或成交，需卖方重新在市场挂牌。`/land transfer` 等明确赠与/管理命令保持原意；市场挂牌锁仍限制挂牌中的直接转移。本次不改变无主地认领规则。需同时更新市场 `dot/land-market` 版本；地图旧销售标记不代表市场实际可购买状态，以市场确认页为准。
+
+
+## 内置客户端界面
+
+本主模组 JAR 同时包含服务端逻辑与可选客户端界面。服务器安装后，原版客户端无需安装本模组即可使用原有命令/原版菜单。客户端安装同一 JAR 可启用增强界面；界面只在客户端入口加载，服务端保持交易权威。
+
+升级时请移除旧 `landmod-ui` 独立 JAR；同时安装会由 Fabric Loader 明确拒绝，以避免重复接收器、快捷键和类冲突。不要保留同一主模组的两个版本。只安装本地客户端不会改变远端服务器数据；不支持相关网络通道的服务器不会接收本 UI 操作。
+
+兼容性验收仍需分别执行：专用服务器+原版客户端、Fabric空客户端、完整客户端、单人世界切换远程服务器、旧 UI 包并存的拒绝提示、协议不匹配时的基础入口。构建通过不等同于实际联机验收。

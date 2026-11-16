@@ -18,6 +18,8 @@ public final class ClientClaims {
     private ClientClaims() {
     }
 
+    public static void clear() { view = View.EMPTY; }
+
     public static void replace(ClaimSnapshot snapshot) {
         view = View.from(snapshot);
     }

@@ -84,6 +84,10 @@ public final class LandTradeClient {
     }
 
     private static void send(TradeRequest request) {
+        if (!ClientPlayNetworking.canSend(LandTrade.CHANNEL)) {
+            tell(MinecraftClient.getInstance(), "当前服务器不支持领地交易界面，请使用服务器提供的基础入口。");
+            return;
+        }
         PacketByteBuf buf = PacketByteBufs.create();
         request.write(buf);
         ClientPlayNetworking.send(LandTrade.CHANNEL, buf);

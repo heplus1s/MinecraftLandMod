@@ -18,6 +18,10 @@ public final class LandUiClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            ClientSales.clear();
+            LandPick.clear();
+        });
         ClientPlayNetworking.registerGlobalReceiver(LandTrade.CHANNEL, (client, handler, buf, responseSender) -> {
         });
         ClientPlayNetworking.registerGlobalReceiver(LandTrade.SALES, (client, handler, buf, responseSender) -> {
@@ -36,6 +40,7 @@ public final class LandUiClient implements ClientModInitializer {
                 "category.landmod-ui"));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (open.wasPressed()) {
+                if (client.player == null || !ClientPlayNetworking.canSend(LandTrade.CHANNEL)) continue;
                 client.setScreen(new LandBoardScreen(client.currentScreen));
             }
         });

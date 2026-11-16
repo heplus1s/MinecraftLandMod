@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 public final class LandClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientClaims.clear());
         ClientPlayNetworking.registerGlobalReceiver(ClaimSync.CHANNEL, (client, handler, buf, responseSender) -> {
             ClaimSnapshot snapshot;
             try {
