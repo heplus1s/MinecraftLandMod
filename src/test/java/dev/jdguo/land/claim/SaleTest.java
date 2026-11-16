@@ -164,6 +164,20 @@ class SaleTest {
         assertEquals(before + 1, snapshot.revision());
     }
 
+    @Test
+    void abandonClearsOfferAndStableSnapshotDoesNotBumpRevision() {
+        ClaimMap map = new ClaimMap();
+        assertTrue(map.claim(OVERWORLD, 0, 0, ALICE, "Alice", 8).succeeded());
+        UUID parcel = map.get(OVERWORLD, 0, 0).parcelId();
+        assertTrue(map.sellParcel(ALICE, "Alice", parcel).succeeded());
+        int before = map.saleRevision();
+        assertTrue(map.abandon(OVERWORLD, 0, 0, ALICE).succeeded());
+        var snapshot = dev.jdguo.land.network.SaleSnapshot.capture(map);
+        assertTrue(snapshot.sales().isEmpty());
+        assertEquals(before + 1, snapshot.revision());
+        assertEquals(snapshot, dev.jdguo.land.network.SaleSnapshot.capture(map));
+    }
+
     private static ClaimKey key(int x, int z) {
         return new ClaimKey(OVERWORLD, x, z);
     }
