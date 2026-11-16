@@ -17,11 +17,16 @@
       "dev.jdguo.land.LandMod"
     ],
     "client": [
-      "dev.jdguo.land.client.LandClient"
+      "dev.jdguo.land.client.LandClient",
+      "dev.jdguo.land.ui.LandUiClient"
     ]
   },
   "mixins": [
-    "landmod.mixins.json"
+    "landmod.mixins.json",
+    {
+      "config": "landmod-ui.mixins.json",
+      "environment": "client"
+    }
   ],
   "depends": {
     "fabricloader": ">=0.15.0",
@@ -31,7 +36,9 @@
   },
   "suggests": {
     "xaeroworldmap": "*",
-    "xaerominimap": "*",
+    "xaerominimap": "*"
+  },
+  "breaks": {
     "landmod-ui": "*"
   }
 }

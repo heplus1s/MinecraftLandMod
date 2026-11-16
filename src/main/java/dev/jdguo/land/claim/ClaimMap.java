@@ -289,6 +289,33 @@ public final class ClaimMap {
         return changed;
     }
 
+    /** Checks every chunk before applying an initial market grant. */
+    public String checkInitialGrant(List<ClaimKey> keys, UUID owner, int maxClaims) {
+        if (keys == null || keys.isEmpty() || keys.size() > 1024 || new HashSet<>(keys).size() != keys.size()) return "selection";
+        String dimension = keys.get(0).dimension();
+        if (maxClaims > 0 && (long) countOwned(owner) + keys.size() > maxClaims) return "limit";
+        for (ClaimKey key : keys) {
+            if (!dimension.equals(key.dimension())) return "dimension";
+            if (get(key.dimension(), key.chunkX(), key.chunkZ()) != null) return "already_claimed";
+            if (!ClaimGates.allowClaim(owner, key.dimension(), key.chunkX(), key.chunkZ())) return "protected";
+        }
+        return "ok";
+    }
+
+    /** Server thread only. Validation precedes mutation; all cells become one parcel. */
+    public Result initialGrant(List<ClaimKey> keys, UUID owner, String ownerName, int maxClaims) {
+        String checked = checkInitialGrant(keys, owner, maxClaims);
+        if (!checked.equals("ok")) return fail(Denial.GATE, null, checked);
+        Parcel parcel = createParcel("");
+        Claim first = null;
+        for (ClaimKey key : keys) {
+            Claim placed = place(key.dimension(), key.chunkX(), key.chunkZ(), parcel, owner, ownerName);
+            if (first == null) first = placed;
+        }
+        revision++;
+        return ok(first);
+    }
+
     public Result claim(String dimension, int chunkX, int chunkZ, UUID owner, String ownerName, int maxClaims) {
         Claim existing = get(dimension, chunkX, chunkZ);
         if (existing != null) {

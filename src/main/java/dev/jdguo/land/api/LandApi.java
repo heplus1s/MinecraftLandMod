@@ -44,6 +44,54 @@ public final class LandApi {
     private LandApi() {
     }
 
+    /** Read-only initial-sale validation. Coordinates are chunk x,z pairs. */
+    public static String initialGrantCheck(MinecraftServer server, UUID buyer, String dimension, int[] coordinates) {
+        if (server == null || !server.isOnThread() || buyer == null) return "rejected:thread_or_buyer";
+        try {
+            var keys = initialKeys(server, dimension, coordinates, true);
+            String checked = claims(server).checkInitialGrant(keys, buyer, LandConfig.maxClaimsPerPlayer());
+            return checked.equals("ok") ? "ok" : "rejected:" + checked;
+        } catch (IllegalArgumentException invalid) { return "rejected:" + invalid.getMessage(); }
+    }
+
+    /** Idempotent grant. pending/conflict must never trigger a refund; retry/reconcile instead. */
+    public static String initialGrant(MinecraftServer server, UUID buyer, String dimension, int[] coordinates, String reference) {
+        if (server == null || !server.isOnThread() || buyer == null) return "rejected:thread_or_buyer";
+        if (reference == null || reference.isBlank() || reference.length() > 160) return "rejected:reference";
+        boolean replay = !saved(server).initialGrantStatus(reference).equals("missing");
+        try {
+            var keys = initialKeys(server, dimension, coordinates, !replay);
+            StringBuilder fingerprint = new StringBuilder(buyer.toString()).append('|').append(dimension);
+            for (var key : keys) fingerprint.append('|').append(key.chunkX()).append(',').append(key.chunkZ());
+            return saved(server).initialGrant(buyer, keys, fingerprint.toString(), reference);
+        } catch (IllegalArgumentException invalid) { return replay ? "conflict" : "rejected:" + invalid.getMessage(); }
+    }
+
+    public static String initialGrantStatus(MinecraftServer server, String reference) {
+        if (server == null || !server.isOnThread()) return "pending";
+        return saved(server).initialGrantStatus(reference);
+    }
+
+    private static List<ClaimKey> initialKeys(MinecraftServer server, String dimension, int[] coordinates, boolean validateWorld) {
+        if (coordinates == null || coordinates.length == 0 || coordinates.length > 2048 || coordinates.length % 2 != 0)
+            throw new IllegalArgumentException("selection");
+        var world = server.getWorld(net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD,
+                new net.minecraft.util.Identifier(dimension)));
+        if (world == null && validateWorld) throw new IllegalArgumentException("dimension");
+        var result = new java.util.ArrayList<ClaimKey>();
+        for (int i = 0; i < coordinates.length; i += 2) {
+            int x = coordinates[i], z = coordinates[i + 1];
+            if (validateWorld && (x < -1875000 || x >= 1875000 || z < -1875000 || z >= 1875000
+                    || !world.getWorldBorder().contains(new net.minecraft.util.math.BlockPos(x * 16, 0, z * 16))
+                    || !world.getWorldBorder().contains(new net.minecraft.util.math.BlockPos(x * 16 + 15, 0, z * 16 + 15))))
+                throw new IllegalArgumentException("world_border");
+            result.add(new ClaimKey(dimension, x, z));
+        }
+        result.sort(java.util.Comparator.comparingInt(ClaimKey::chunkX).thenComparingInt(ClaimKey::chunkZ));
+        if (new java.util.HashSet<>(result).size() != result.size()) throw new IllegalArgumentException("duplicate");
+        return result;
+    }
+
     public static @Nullable ParcelInfo parcel(MinecraftServer server, UUID parcelId) {
         return claims(server).info(parcelId);
     }

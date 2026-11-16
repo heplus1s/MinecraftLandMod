@@ -23,6 +23,7 @@ public final class LandTrade {
     }
 
     public static void register() {
+        LandQuoteChannel.register();
         ServerPlayNetworking.registerGlobalReceiver(CHANNEL, (server, player, handler, buf, responseSender) -> {
             TradeRequest request;
             try {

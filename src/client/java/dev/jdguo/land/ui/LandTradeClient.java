@@ -84,6 +84,14 @@ public final class LandTradeClient {
     }
 
     private static void send(TradeRequest request) {
+        if (request.chunks().size() > TradeRequest.MAX_CHUNKS) {
+            tell(MinecraftClient.getInstance(), "单次区块选区最多 " + TradeRequest.MAX_CHUNKS + " 块，请缩小范围或使用整宗地模式。");
+            return;
+        }
+        if (!ClientPlayNetworking.canSend(LandTrade.CHANNEL)) {
+            tell(MinecraftClient.getInstance(), "当前服务器不支持领地交易界面，请使用服务器提供的基础入口。");
+            return;
+        }
         PacketByteBuf buf = PacketByteBufs.create();
         request.write(buf);
         ClientPlayNetworking.send(LandTrade.CHANNEL, buf);

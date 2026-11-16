@@ -11,4 +11,4 @@ pluginManagement {
 
 rootProject.name = "landmod"
 
-include "ui"
+

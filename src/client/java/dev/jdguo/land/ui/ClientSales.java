@@ -17,6 +17,8 @@ public final class ClientSales {
     private ClientSales() {
     }
 
+    public static void clear() { view = View.EMPTY; }
+
     public static void replace(SaleSnapshot snapshot) {
         view = View.from(snapshot);
     }
