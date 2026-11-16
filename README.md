@@ -196,3 +196,9 @@ Java 17 is the target. `./gradlew test remapJar :ui:remapJar` runs the tests and
 ## 许可
 
 MIT License. Copyright (c) 2026 heplus1s.
+
+### 土地交易统一市场结算
+
+此版本将 `/land sell parcel`、`/land sell chunks`、`/land buy`、地图交易请求和撤销请求交给兼容市场模组的原版箱子确认页。卖方确认价格及货币后才挂牌；买方确认市场整单总价后才通过银行扣款并过户。打开页面不等于成交，不清除选区。不安装或未更新市场时拒绝交易，绝不回退到免费购买。
+
+旧版无价格销售记录不会被自动定价或成交，需卖方重新在市场挂牌。`/land transfer` 等明确赠与/管理命令保持原意；市场挂牌锁仍限制挂牌中的直接转移。本次不改变无主地认领规则。需同时更新市场 `dot/land-market` 版本；地图旧销售标记不代表市场实际可购买状态，以市场确认页为准。

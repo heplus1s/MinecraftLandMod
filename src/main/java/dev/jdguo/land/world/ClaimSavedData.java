@@ -180,75 +180,47 @@ public final class ClaimSavedData extends PersistentState {
         return changed;
     }
 
+    // All player-facing sale entry points use the market confirmation UI.
+    // Opening a screen is not a successful sale: never clear selections or emit a paid receipt here.
     public ClaimMap.Result sellParcel(ServerPlayerEntity player, UUID parcelId) {
-        return tracked(player, () -> claims.sellParcel(player.getUuid(), player.getGameProfile().getName(), parcelId), (result) -> {
-            SaleInfo sale = claims.saleOf(parcelId);
-            int chunks = sale == null ? 0 : sale.chunks().size();
-            SaleChat.Verb verb = sale != null && sale.kind() == SaleKind.CHUNKS ? SaleChat.Verb.SELL_CHUNKS : SaleChat.Verb.SELL_PARCEL;
-            SaleChat.reply(player, result, verb, chunks, null, null);
-        });
+        return market(player, parcelId, "sell", List.of());
     }
 
     public ClaimMap.Result sellChunks(ServerPlayerEntity player, List<ClaimKey> keys) {
-        return tracked(player, () -> claims.sellChunks(player.getUuid(), player.getGameProfile().getName(), keys), (result) -> {
-            int chunks = keys == null ? 0 : keys.size();
-            if (result.succeeded() && result.claim() != null) {
-                SaleInfo sale = claims.saleOf(result.claim().parcelId());
-                if (sale != null) {
-                    chunks = sale.chunks().size();
-                    SaleChat.reply(player, result, sale.kind() == SaleKind.PARCEL ? SaleChat.Verb.SELL_PARCEL : SaleChat.Verb.SELL_CHUNKS, chunks, null, null);
-                    return;
-                }
-            }
-            SaleChat.reply(player, result, SaleChat.Verb.SELL_CHUNKS, chunks, null, null);
-        });
+        return marketChunks(player, keys, "sell");
     }
 
     public ClaimMap.Result cancelSale(ServerPlayerEntity player, UUID parcelId) {
-        return tracked(player, () -> claims.cancelSale(player.getUuid(), parcelId),
-                result -> SaleChat.reply(player, result, SaleChat.Verb.CANCEL, 0, null, null));
+        return market(player, parcelId, "cancel", List.of());
     }
 
     public ClaimMap.Result buyParcel(ServerPlayerEntity player, UUID parcelId) {
-        SaleInfo before = claims.saleOf(parcelId);
-        int chunks = before == null ? 0 : before.chunks().size();
-        UUID seller = before == null ? null : before.seller();
-        String sellerName = before == null ? "" : before.sellerName();
-        return tracked(player, () -> claims.buyParcel(player.getUuid(), player.getGameProfile().getName(), parcelId, dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer()),
-                result -> SaleChat.reply(player, result, SaleChat.Verb.BUY_PARCEL, chunks, seller, sellerName));
+        return market(player, parcelId, "buy", List.of());
     }
 
     public ClaimMap.Result buyChunks(ServerPlayerEntity player, List<ClaimKey> keys) {
-        SaleInfo before = keys == null || keys.isEmpty() ? null : saleOfKey(keys.get(0));
-        int chunks = keys == null ? 0 : keys.size();
-        UUID seller = before == null ? null : before.seller();
-        String sellerName = before == null ? "" : before.sellerName();
-        SaleChat.Verb verb = before != null && before.kind() == SaleKind.PARCEL ? SaleChat.Verb.BUY_PARCEL : SaleChat.Verb.BUY_CHUNKS;
-        int reported = before != null && before.kind() == SaleKind.PARCEL ? before.chunks().size() : chunks;
-        return tracked(player, () -> claims.buyChunks(player.getUuid(), player.getGameProfile().getName(), keys, dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer()),
-                result -> SaleChat.reply(player, result, verb, reported, seller, sellerName));
+        return marketChunks(player, keys, "buy");
     }
 
     public ClaimMap.Result buyStanding(ServerPlayerEntity player) {
-        ClaimKey key = standing(player);
-        dev.jdguo.land.claim.Claim claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
-        if (claim == null) {
-            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("此处没有领地。"), false);
-            return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        return marketChunks(player, List.of(standing(player)), "buy");
+    }
+
+    private ClaimMap.Result marketChunks(ServerPlayerEntity player, List<ClaimKey> keys, String action) {
+        if (keys == null || keys.isEmpty()) return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        var first = claims.get(keys.get(0).dimension(), keys.get(0).chunkX(), keys.get(0).chunkZ());
+        if (first == null) return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
+        for (ClaimKey key : keys) {
+            var claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
+            if (claim == null || !claim.parcelId().equals(first.parcelId()))
+                return new ClaimMap.Result(ClaimMap.Denial.MIXED_PARCEL, null, "");
         }
-        SaleInfo sale = claims.saleOf(claim.parcelId());
-        if (sale == null) {
-            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("这块地没有在出售。"), false);
-            return new ClaimMap.Result(ClaimMap.Denial.NOT_FOR_SALE, claim, "");
-        }
-        if (sale.kind() == SaleKind.PARCEL) {
-            return buyParcel(player, sale.parcelId());
-        }
-        if (!sale.chunks().contains(key)) {
-            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("这块地没有在出售。"), false);
-            return new ClaimMap.Result(ClaimMap.Denial.NOT_FOR_SALE, claim, "");
-        }
-        return buyChunks(player, List.of(key));
+        return market(player, first.parcelId(), action, keys);
+    }
+
+    private ClaimMap.Result market(ServerPlayerEntity player, UUID parcelId, String action, List<ClaimKey> keys) {
+        dev.jdguo.land.integration.MarketTradeBridge.open(player, parcelId, action, keys);
+        return new ClaimMap.Result(ClaimMap.Denial.GATE, null, "market_confirmation");
     }
 
     private SaleInfo saleOfKey(ClaimKey key) {
