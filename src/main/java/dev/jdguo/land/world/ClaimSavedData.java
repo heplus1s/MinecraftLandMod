@@ -145,6 +145,7 @@ public final class ClaimSavedData extends PersistentState {
             return "pending";
         }
         if (!result.succeeded()) return "rejected:" + result.denial();
+        claims.sales(); // Match ordinary transfer cleanup before persisting the ownership receipt.
         marketTransfers.putString(reference, fingerprint);
         markDirty();
         boolean durable = flushMarketTransfer(reference);
