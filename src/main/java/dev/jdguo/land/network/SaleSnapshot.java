@@ -1,6 +1,7 @@
 package dev.jdguo.land.network;
 
 import dev.jdguo.land.claim.ClaimKey;
+import dev.jdguo.land.claim.ClaimMap;
 import dev.jdguo.land.claim.SaleInfo;
 import dev.jdguo.land.claim.SaleKind;
 import net.minecraft.network.PacketByteBuf;
@@ -20,6 +21,12 @@ public record SaleSnapshot(int revision, List<SaleInfo> sales) {
 
     public SaleSnapshot {
         sales = List.copyOf(sales);
+    }
+
+    /** Prune stale offers before reading their revision. */
+    public static SaleSnapshot capture(ClaimMap claims) {
+        List<SaleInfo> sales = claims.sales();
+        return new SaleSnapshot(claims.saleRevision(), sales);
     }
 
     public void write(PacketByteBuf buf) {

@@ -48,7 +48,7 @@ public final class LandTrade {
         }
         ClaimSavedData data = ClaimSavedData.get(server);
         int before = data.claims().saleRevision();
-        SaleSnapshot snapshot = new SaleSnapshot(data.claims().saleRevision(), data.claims().sales());
+        SaleSnapshot snapshot = SaleSnapshot.capture(data.claims());
         if (data.claims().saleRevision() != before) {
             data.markDirty();
         }

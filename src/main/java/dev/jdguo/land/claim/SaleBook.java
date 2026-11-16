@@ -165,6 +165,7 @@ public final class SaleBook {
 
     public void prune(ClaimMap map) {
         List<UUID> drop = new ArrayList<>();
+        boolean changed = false;
         for (Listing listing : byParcel.values()) {
             if (listing.kind == SaleKind.PARCEL) {
                 ParcelInfo parcel = map.info(listing.parcelId);
@@ -173,7 +174,7 @@ public final class SaleBook {
                 }
                 continue;
             }
-            listing.chunks.removeIf(key -> {
+            changed |= listing.chunks.removeIf(key -> {
                 Claim claim = map.get(key.dimension(), key.chunkX(), key.chunkZ());
                 return claim == null || !claim.owner().equals(listing.seller) || !claim.parcelId().equals(listing.parcelId);
             });
@@ -183,6 +184,9 @@ public final class SaleBook {
         }
         if (!drop.isEmpty()) {
             drop.forEach(byParcel::remove);
+            changed = true;
+        }
+        if (changed) {
             revision++;
         }
     }

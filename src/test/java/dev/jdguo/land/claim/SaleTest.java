@@ -134,6 +134,36 @@ class SaleTest {
         assertEquals(SaleKind.PARCEL, map.saleOf(parcel).kind());
     }
 
+    @Test
+    void partialPruneUpdatesRevisionAndSnapshotTogether() {
+        ClaimMap map = new ClaimMap();
+        assertTrue(map.claim(OVERWORLD, 0, 0, ALICE, "Alice", 8).succeeded());
+        UUID parcel = map.get(OVERWORLD, 0, 0).parcelId();
+        assertTrue(map.claimJoin(OVERWORLD, 1, 0, ALICE, "Alice", 8, parcel).succeeded());
+        assertTrue(map.claimJoin(OVERWORLD, 2, 0, ALICE, "Alice", 8, parcel).succeeded());
+        assertTrue(map.sellChunks(ALICE, "Alice", List.of(key(1, 0), key(2, 0))).succeeded());
+        int before = map.saleRevision();
+        assertTrue(map.transfer(OVERWORLD, 1, 0, ALICE, BOB, "Bob", 8).succeeded());
+        var snapshot = dev.jdguo.land.network.SaleSnapshot.capture(map);
+        assertEquals(before + 1, snapshot.revision());
+        assertEquals(map.saleRevision(), snapshot.revision());
+        assertEquals(List.of(key(2, 0)), snapshot.sales().get(0).chunks());
+        assertEquals(snapshot, dev.jdguo.land.network.SaleSnapshot.capture(map));
+    }
+
+    @Test
+    void ordinaryTransferRemovesWholeSaleFromNextSnapshot() {
+        ClaimMap map = new ClaimMap();
+        assertTrue(map.claim(OVERWORLD, 0, 0, ALICE, "Alice", 8).succeeded());
+        UUID parcel = map.get(OVERWORLD, 0, 0).parcelId();
+        assertTrue(map.sellParcel(ALICE, "Alice", parcel).succeeded());
+        int before = map.saleRevision();
+        assertTrue(map.transferParcel(ALICE, parcel, BOB, "Bob", 8, "").succeeded());
+        var snapshot = dev.jdguo.land.network.SaleSnapshot.capture(map);
+        assertTrue(snapshot.sales().isEmpty());
+        assertEquals(before + 1, snapshot.revision());
+    }
+
     private static ClaimKey key(int x, int z) {
         return new ClaimKey(OVERWORLD, x, z);
     }
