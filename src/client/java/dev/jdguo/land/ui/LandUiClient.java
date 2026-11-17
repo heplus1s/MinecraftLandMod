@@ -19,6 +19,7 @@ public final class LandUiClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         LandQuotes.register();
+        ParcelNameScreen.register();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             ClientSales.clear();
             LandQuotes.reset();

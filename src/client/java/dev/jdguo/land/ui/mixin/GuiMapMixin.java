@@ -38,6 +38,8 @@ public class GuiMapMixin {
         while (landui$top + 96 < screen.height - 32 && landui$blocked(screen, landui$left, landui$top)) landui$top += 24;
         if (landui$blocked(screen, landui$left, landui$top)) return; // K still opens the independent grid.
         landui$toolbarVisible = true;
+        screen.addButton(ButtonWidget.builder(Text.literal("命名"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ParcelNameScreen(screen)))
+                .dimensions(landui$left, landui$top + 48, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("管理"), button -> MinecraftClient.getInstance().setScreen(new LandManageScreen(screen)))
                 .dimensions(landui$left + 104, landui$top + 48, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("领地"), button -> LandPick.toggle())
