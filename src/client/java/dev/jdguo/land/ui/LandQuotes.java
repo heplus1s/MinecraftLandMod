@@ -17,10 +17,11 @@ public final class LandQuotes {
     private LandQuotes() {}
     public static void register() {
         ClientPlayNetworking.registerGlobalReceiver(LandQuoteChannel.RESPONSE, (client, handler, buf, sender) -> {
-            int generation = buf.readVarInt();
-            String operation = buf.readString(32);
-            String json = buf.readString(32767);
+            final int generation;
+            final String operation, json;
+            try { generation = buf.readVarInt(); operation = buf.readString(32); json = buf.readString(32767); } catch (RuntimeException malformed) { return; }
             client.execute(() -> {
+                if (client.getNetworkHandler() != handler || client.player == null) return;
                 try {
                     JsonObject value = JsonParser.parseString(json).getAsJsonObject();
                     if (operation.equals("manage")) { management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); }

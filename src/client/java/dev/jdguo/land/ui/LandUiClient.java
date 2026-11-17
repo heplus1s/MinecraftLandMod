@@ -35,7 +35,7 @@ public final class LandUiClient implements ClientModInitializer {
             } catch (RuntimeException exception) {
                 return;
             }
-            client.execute(() -> ClientSales.replace(snapshot));
+            client.execute(() -> { if (client.getNetworkHandler() == handler && client.player != null) ClientSales.replace(snapshot); });
         });
         open = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.landmod-ui.open",

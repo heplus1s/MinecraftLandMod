@@ -33,6 +33,7 @@ public final class ClaimPermissionsScreen extends Screen {
                 message = buf.readString(256); members = buf.readString(8100);
             } catch (RuntimeException invalid) { return; }
             client.execute(() -> {
+                if (client.getNetworkHandler() != handler || client.player == null) return;
                 if (client.currentScreen instanceof ClaimPermissionsScreen screen && request.equals(screen.pending)) {
                     screen.pending = null; screen.editable = editable;
                     screen.status = message; screen.members = members; screen.scroll = 0;

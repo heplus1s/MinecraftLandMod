@@ -30,10 +30,13 @@ public final class ParcelNameScreen extends Screen {
 
     public static void register() {
         ClientPlayNetworking.registerGlobalReceiver(ParcelRename.CHANNEL, (client, handler, buf, sender) -> {
-            UUID request = buf.readUuid();
-            boolean success = buf.readBoolean();
-            String message = buf.readString(256);
+            final UUID request;
+            final boolean success;
+            final String message;
+            try { request = buf.readUuid(); success = buf.readBoolean(); message = buf.readString(256); }
+            catch (RuntimeException malformed) { return; }
             client.execute(() -> {
+                if (client.getNetworkHandler() != handler || client.player == null) return;
                 if (client.currentScreen instanceof ParcelNameScreen screen && request.equals(screen.pending)) {
                     screen.pending = null;
                     screen.status = message;
