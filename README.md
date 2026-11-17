@@ -1,86 +1,170 @@
-# 领地 / Land
+# Minecraft Land · 领地
 
-Fabric 1.20.1 的区块领地模组。最小单位仍是原版 16×16 区块，若干区块组成一块有编号、可命名的宗地。服务端负责保护，原版客户端可以进服，不需要装这个模组，也不需要资源包。
+适用于 **Minecraft Java 1.20.1 / Fabric** 的区块领地模组。当前文档对应 **v1.0.8**。
 
-A chunk-claim mod for Fabric 1.20.1. The smallest unit is still one vanilla 16×16 chunk. A parcel is a named, id'd group of those chunks. The server enforces protection. A vanilla client can join and play without this mod and without a resource pack.
+Land 负责“谁拥有哪块地、谁可以操作、如何过户”；市场负责挂牌、报价与交易流程；银行负责余额和结算。领地保护由服务器执行，增强地图界面可选，**原版客户端无需安装 Land 也可加入装有本模组的服务器**。
 
-这不是 Open Parties and Claims，也不是别的模组的一部分。
+- [下载 Release](https://github.com/heplus1s/MinecraftLandMod/releases)
+- 联动项目：[银行](https://github.com/heplus1s/MinecraftBankMod) · [市场](https://github.com/heplus1s/MinecraftMarketMod) · [商店](https://github.com/heplus1s/MinecraftShopMod)
+- [本版更新说明](RELEASE_NOTES_1.0.8.md)
 
-This is a new mod. It is not Open Parties and Claims, and it is not part of another project.
+## 1. 安装与更新
 
-## 安装
+| 环境 | 需要安装什么 |
+| --- | --- |
+| 专用服务器 | Fabric Loader、Fabric API、`landmod-1.0.8.jar` |
+| 原版客户端进服 | 无需 Land、地图模组或资源包；使用聊天命令及服务端提供的原版交易菜单 |
+| 增强客户端 | Fabric Loader、Fabric API、同一份 Land 主模组 JAR；可选 Xaero 地图 |
+| 单人游戏 | 在 Fabric 客户端安装以上依赖，集成服务端负责保护和数据 |
+| 付费买卖土地 | 服务端另装兼容的 Market 和 Bank；推荐使用同批最新版本 |
 
-服务端和单人游戏都要装 Fabric Loader、Fabric API，以及本模组。`fabric.mod.json` 里的 environment 是 `*`，入口是 `ModInitializer`，单人游戏的集成服务端会一起启动保护。不要只装一个服务端专用入口，那样单人世界不会生效。
+运行要求：Java 17 或更高，Fabric Loader 至少 0.15.0，Minecraft `~1.20.1`。工程构建使用 Loader 0.16.9、Fabric API 0.92.2+1.20.1。不要把其他 Minecraft 版本的 JAR 混入。
 
-进专用服务器的玩家不需要装本模组。装了的话，客户端会收到领地数据，用来画地图，不参与保护判定。
+客户端 UI 已合并在主模组内。**删除旧的 `landmod-ui` 独立包**，并确保每个模组只保留一个版本；旧 UI 与主包同时安装会被 Loader 拒绝。更新前停服备份整个世界、配置及联动模组的账本，之后再替换 JAR。只有客户端更新不能修复旧服务器逻辑。
 
-Put Fabric Loader, Fabric API, and this mod on the dedicated server. For singleplayer, put the same jars in a Fabric client. The mod uses environment `*` and a `ModInitializer`, so the integrated server runs the protection too.
+没有 Market 时，基础领地保护和认领仍可用；买卖入口会拒绝，而不是自动变成免费交易。服务器是否启用“无主地付费初售”决定 `/land claim` 是直接认领还是进入购买流程，详见第 5 节。
 
-Players who only join the server do not install anything. If their client also has this mod, it receives claim data for the map overlay. Protection is still decided on the server.
+## 2. 数据模型与保护原理
 
-构建好的文件是 `landmod-1.0.0.jar`。
+### 区块、宗地和成员
 
-## 命令
+- **区块**：Minecraft 原版 16×16 水平方块列，是最小权属单位。不是任意长方体，也不单独切分高度。
+- **宗地**：同一维度、同一所有者的一组区块，有 UUID，可起中文名称。面积按区块数计算；4 个区块是 1,024 平方格的水平面积，不是 1,024 个方块体积。
+- **成员**：逐区块保存，不是全宗地统一权限。信任某人不会自动把他加到相邻或新并入的区块。
+- **操作判定**：服务器根据维度、方块 X/Z 所属区块、所有者、成员和 OP 权限判断；客户端地图只是展示和发出请求，不能决定所有权。
 
-命令本身是英文，聊天提示是中文，前缀是 `[领地]`。
+并入、合并要求同维度且至少共用一条区块边，斜对角不算相邻。拆分或放弃连接处后，剩余区域不会自动按连通性拆成多个宗地。转让会清除被转让区块的原成员。
 
-Commands are English. Chat replies are Chinese and start with `[领地]`.
+### 当前保护范围
+
+非所有者、非成员不能在已认领区域：
+
+- 破坏或放置方块；
+- 打开容器及物品界面，包括箱子、漏斗、熔炉、末影箱、工作台、铁砧、附魔台，以及有容器的船、矿车、驴等；
+- 让爆炸破坏领地方块。无玩家来源的爆炸会被过滤；若爆炸来源是具有该处建造权限的玩家，则允许破坏。
+
+权限等级 2 及以上的管理员可绕过上述保护，但这**不代表可以通过所有者命令随意转让或放弃他人领地**，也不自动免除持有上限。
+
+**未覆盖**：门、按钮、拉杆、物品展示框、活塞、流体、凋灵本体破坏、末影龙及其他模组自定义的全部机器/自动化行为。这里不是完整的所有模组防破坏沙箱；应在测试世界验证具体自动化设备。
+
+## 3. 图形界面与地图使用
+
+### 内置网格
+
+客户端装有 Land 后，默认按 **K** 打开领地网格，可在游戏控制设置中修改快捷键。不装 Xaero 也能使用。
+
+1. 网格每一格就是一个区块，初始中心为玩家所在区块，方向按钮移动视图。
+2. “区块”模式逐个点击增选/取消；“宗地”模式点击已知宗地会选中或取消整宗地，点击无主区块仍选该区块。
+3. 蓝色为已选，绿色为自己领地，橙色为他人领地，灰色为未记录区域，黄色为客户端销售标记。**灰色不等于一定可买，黄色也不能替代市场实时订单检查。**
+4. “购买”“出售”“停售”发出服务端请求；选区本身不会扣钱或转让。最终以服务器确认页和回执为准。
+5. “清除”清空选区；“命名”“权限”“管理”分别处理宗地名称、区块成员和初售政策。
+
+单次显式区块交易请求最多 512 块；服务器仍会检查范围、所有权、持有上限和订单状态。下方显示选区报价摘要，可悬停查看；最终价格、支付币种和是否可成交以市场确认页为准。
+
+### 名称与权限
+
+- 命名：选中自己同一宗地内的区块，点击“命名”，在 UI 输入名称后保存。支持中文，最多 32 字符；留空可清除。多宗地或他人领地不能借此改名。
+- 权限：只选中**一个区块**，点击“权限”。添加成员要求目标玩家在线；移除可使用已记录的离线成员。每次提交重新校验区块所有者。
+- 管理：需要服务器管理员权限。按钮存在并不授予权限，服务器会拒绝无权限请求。初售管理页面建议逻辑界面尺寸至少 280×250，不足时按提示降低 GUI 缩放。
+
+### Xaero 集成
+
+可选安装：
+
+- Xaero's World Map **1.37.2（Fabric 1.20）**；
+- Xaero's Minimap **23.9.3（Fabric 1.20）**。
+
+这是工程对照的版本，不承诺所有未来版本 API 兼容。世界地图提供领地选择和相关操作入口，小地图设置入口可打开网格；高亮按宗地边界区分，即使相邻宗地属于同一人也有边界。地图依赖仅用于编译，不打进 Land JAR，未安装时相应 mixin 不启用。
+
+### 进入领地提示与网络同步
+
+进入已认领区域时，顶部显示“领地名 · 所有者”；未命名时显示未命名领地，离开隐藏。该提示用原版 BossBar，不要求客户端装 Land。
+
+增强客户端仅在服务器声明相应通道后发送请求。v1.0.8 增加连接后初始领地/销售数据请求与重试，避免 JOIN 早于通道注册导致地图缺数据；断线时清理客户端状态。地图数据不能作为最终交易授权依据。
+
+## 4. 命令速查
+
+命令为英文，提示主要为中文。以下所有者操作均在服务端校验；`<玩家>` 使用游戏档案名。宗地参数可用名称、完整 UUID，或至少 4 位且唯一的 UUID 前缀；补全主要提供编号。含空格的字符串参数应按命令补全使用引号。
+
+### 认领与查看
 
 | 命令 | 作用 |
 | --- | --- |
-| `/land claim` | 占领脚下这个区块，并新建一块宗地 |
-| `/land claim join` | 把脚下区块并入旁边那块你的宗地。旁边有多块时要写出名称或编号 |
-| `/land claim join <parcel>` | 并入指定的宗地。它必须是你的，并且和脚下区块共边 |
-| `/land abandon` | 放弃脚下这个区块。只有主人可以。宗地里最后一块被放弃后，宗地记录删除 |
-| `/land info` | 查看脚下区块所在宗地、主人，以及这个区块的成员 |
-| `/land list` | 列出你拥有的区块 |
-| `/land trust <player>` | 把一名玩家加进脚下这个区块 |
-| `/land untrust <player>` | 把这名玩家从脚下这个区块移出 |
-| `/land transfer <player>` | 转让脚下这个区块。宗地里还有别的区块时，这一块会先拆出去 |
-| `/land mark` | 标记或取消标记脚下区块，供拆分使用 |
-| `/land mark clear` | 清除标记 |
-| `/land mark list` | 列出已标记的区块 |
-| `/land split` | 把标记的区块，或没有标记时脚下这一块，拆成你仍拥有的新宗地 |
-| `/land split <name>` | 同上，并给新宗地起名 |
-| `/land split transfer <player>` | 把标记的区块，或脚下这一块，转让给这名玩家 |
-| `/land parcel list` | 列出你的宗地、块数和编号 |
-| `/land parcel info` | 查看脚下宗地。也可以 `/land parcel info <parcel>` |
-| `/land parcel rename <name>` | 给脚下宗地改名。`<name>` 为 `-` 时清除名称 |
-| `/land parcel merge <parcel>` | 把指定宗地并入脚下这块。两块要共边，且在同一维度 |
-| `/land parcel transfer <player>` | 把脚下整块宗地转让给这名玩家 |
-| `/land area` | 查询脚下宗地的区块数，以及你名下的总区块数 |
-| `/land area <parcel>` | 查询指定宗地的区块数 |
+| `/land` | 查看帮助 |
+| `/land claim` | 认领脚下区块；付费初售开启时转入市场购买确认 |
+| `/land claim join` | 将脚下区块并入相邻的自己的宗地；相邻多宗地时需指定 |
+| `/land claim join <宗地>` | 指定宗地并入；付费初售开启时先买新区块，再自行合并 |
+| `/land abandon` | 放弃脚下区块，最后一块放弃后宗地记录删除；不是退款操作 |
+| `/land info` | 查看脚下领地和当前区块成员 |
+| `/land list` | 列出自己拥有的区块 |
+| `/land area [宗地]` | 查询面积；不指定时查看脚下及自己总持有量 |
 
-斜对角不算相邻。信任仍然只作用在单个区块上，合并或并入不会把成员复制到别的区块。转让会清掉被转走的那些区块上的成员。放弃或拆分中间的一块后，剩下的区块仍算同一宗地，模组不会自动再拆开。
+### 成员、拆分与转让
 
-玩家名用游戏里的档案名，需要这个人至少进过这个服务器。宗地参数可以是名称、完整编号，或至少 4 位且能唯一对上的编号前缀。补全只提示编号。一次最多标记 512 块。
+| 命令 | 作用 |
+| --- | --- |
+| `/land trust <玩家>` / `/land untrust <玩家>` | 添加/移除脚下区块成员 |
+| `/land transfer <玩家>` | 转让脚下区块；多区块宗地中会先拆出这块 |
+| `/land mark` | 标记/取消脚下区块，供拆分和区块出售使用 |
+| `/land mark clear` / `/land mark list` | 清空/查看标记，最多 512 块 |
+| `/land split [名称]` | 将标记区块（未标记时为脚下区块）拆成自己持有的新宗地 |
+| `/land split transfer <玩家>` | 将选定区块拆出并转让给目标玩家 |
+| `/land parcel list` / `/land parcel info [宗地]` | 查看自己宗地或指定宗地 |
+| `/land parcel rename <名称>` | 修改脚下宗地名；`-` 清除名称 |
+| `/land parcel merge <宗地>` | 将指定宗地并入脚下宗地，双方必须归自己所有且共边 |
+| `/land parcel transfer <玩家>` | 转让脚下整宗地 |
 
-`trust` and `untrust` still apply to the chunk you are standing in. `/land transfer` does too: if that chunk is part of a larger parcel, it is carved off first. `/land parcel transfer` moves the whole parcel. `/land split` carves marked chunks, or the chunk underfoot when nothing is marked, into a new parcel you still own. `/land split transfer` gives those chunks to someone else as one parcel. Join and merge need a shared edge in the same dimension. Diagonal chunks do not count. Trust is not copied onto other chunks. Transfer clears members on the chunks that change owner. Abandoning or carving out a bridge chunk leaves the rest as one parcel.
+直接 `transfer` 是明确的赠与/转移操作，**不是有价出售，不自动扣款**；已被市场挂牌锁定的宗地可能被交易 gate 拒绝。命令与地图的成员添加要求并不完全相同，命令通过服务器档案解析玩家；解析失败时先让目标玩家进服。
 
-The player argument is a game profile, so that person needs to have joined the server before. A parcel argument is its name, its full id, or a unique id prefix of at least 4 hex digits. Tab completion offers ids only. A player can mark at most 512 chunks. `/land parcel rename -` clears the name.
+### 买卖（需要兼容 Market + Bank）
 
-权限等级 2 及以上的管理员可以破坏、放置、开容器，不受领地限制。管理员不能因此放弃或转让别人的领地，领地数量上限对他们同样有效。
+| 命令 | 作用 |
+| --- | --- |
+| `/land sell parcel` | 打开脚下整宗地的市场出售流程 |
+| `/land sell chunks` | 打开已标记区块或脚下区块的出售流程 |
+| `/land sell cancel` | 请求取消脚下宗地相关出售 |
+| `/land buy` | 由市场判定脚下目标的可购买方式 |
+| `/land buy parcel` | 购买脚下整宗地的市场入口 |
+| `/land buy chunks` | 购买已标记区块或脚下区块的市场入口 |
 
-Operators at permission level 2 or higher bypass block protection. They do not bypass the claim limit, and they cannot abandon or transfer someone else's chunk with these commands.
+Land 本身**没有实体柜台，也没有 `/land outlet` 旋转命令**。需要实体交易点时使用银行、商店或市场模组各自的柜台命令。
 
-## 保护范围
+## 5. 初售、二手交易及四模组联动
 
-非成员不能做这些事：
+### 无主地系统初售
 
-- 破坏方块
-- 放置方块
-- 打开容器或物品界面，包括箱子、漏斗、熔炉、末影箱、工作台、铁砧、附魔台，以及船箱、运输矿车、有箱子的驴
-- 爆炸破坏方块。苦力怕、恶魂、床和重生锚的爆炸也算。若爆炸是某名玩家引起的（例如这名玩家点燃的 TNT），而这名玩家本来就能在这块领地里建造，方块会被炸掉
+初售设置由 **Market** 持久化，不是 `landmod.json`：
 
-管理员绕过上述玩家操作。没有玩家来源的爆炸不会拆掉已占领区块里的方块。
+- 当前市场版本的新设置单价为 **32 央行券/区块**，4 块为 128 券。
+- **新设置的初售开关默认关闭**。管理员需在领地管理中开启并保存，才强制无主地付费购买。开启后 `/land claim` 和 `/land claim join` 不会绕过购买。
+- 已有世界保留原单价、币种和开关，不自动把旧的 1 改成 32。管理页“填入建议地价”只填表，点击“保存默认地价”并收到服务器成功回执才生效。
+- 单区块管理价格为正整数，可选计价币种。管理计价币种与买方付款币种是两个概念：系统初售支持兼容银行提供的跨币付款，最终入地产系统账户的央行券结算由银行处理。
+- 改政策只影响未来初售，不重定价已购地块和玩家二手订单；设置版本变化会使旧报价失效，需重新确认。
 
-这一版不管门、按钮、拉杆、物品展示框、活塞、流体，也不管凋灵本体砸方块和末影龙。
+未安装市场、市场没有初售政策或初售关闭时，基础 `/land claim` 保留原直接认领规则。对于已存在政策但读取失败的情况，桥接层不会把失败误当成免费认领授权。
 
-Non-members cannot break blocks, place blocks, open containers and item screens, or have explosions destroy blocks in the claim. An explosion caused by a player who is allowed to build there can still break those blocks. Operator bypass applies to player actions. Creeper, ghast, bed, and respawn-anchor explosions are included. Doors, buttons, levers, item frames, pistons, fluids, the wither boss, and the ender dragon are not handled in this version.
+### 玩家二手土地
 
-## 配置
+卖方通过市场确认价格、币种后挂牌。买方按**卖方指定币种**付款，不承诺像系统初售一样自动跨币换汇。整宗地出售与选定区块出售不同：部分区块成交时需要拆出并过户，不能把整个宗地误转走。
 
-第一次运行会在 `config/landmod.json` 写下：
+土地订单不是普通商品可按件吃单的订单。打开入口、选择地图或查看报价均不代表成交；确认后由市场检查锁定状态和权属，通过银行付款，再由 Land 执行过户。旧版无价格销售记录不会自动定价或免费成交，需要卖方重新挂牌。Market 缺失或不兼容时明确拒绝买卖，不退回无价格交易。
+
+### 三层职责与持久化
+
+1. **Land**：保存区块/宗地权属、成员、标记，校验转让条件和执行过户。
+2. **Market**：初售政策、二手挂牌、报价确认、交易引用及交易过程管理。
+3. **Bank**：真实余额扣付、跨币报价、系统账户结算和相关资金记录。Land 不自建货币账本，不在本地 UI 造币。
+4. **Shop**：不负责领地权属；其系统账户与地产系统账户独立，管理员拨款在银行侧处理。
+
+当前配套版本为 Bank 1.0.12、Market 1.0.10、Shop 1.0.8、Land 1.0.8。相应个人币可保留小数；无法在支持精度下精确完成的付款会由银行拒绝，不能为完成交易凭空补币。实际可付款币种、余额和报价以服务端返回为准。
+
+Land 对初售发放、市场过户保存交易引用和指纹，用于重复请求判定及耐久保存核验。遇到 pending、锁定或保存失败，不要手工删除引用/锁定记录或反复补发土地，应先检查市场和银行交易状态、日志及备份。
+
+## 6. 配置、存档与备份
+
+### 持有上限
+
+首次运行创建 `config/landmod.json`：
 
 ```json
 {
@@ -88,136 +172,49 @@ Non-members cannot break blocks, place blocks, open containers and item screens,
 }
 ```
 
-这是每个玩家可以拥有的区块数，不是宗地数。一块 4 个区块的宗地占 4 个名额。`0` 或负数表示不限制。改完保存即可，下一次执行领地命令或转让时会重新读取。这个文件如果已经存在，模组不会整份覆盖，避免以后加配置项时被清掉。
+这是**区块数而不是宗地数**；4 区块宗地占 4 个名额。0 或负数不限制。读取该上限的命令或转让路径会检查文件变更，不必通过不存在的 `/land reload`。配置解析出错会记录日志并保留当前值。已有配置不会整份重写。
 
-`maxClaimsPerPlayer` is how many chunks one player may own, not how many parcels. A parcel of 4 chunks uses 4 of the allowance. `0` or a negative number means no limit. The default is 32. Edits are picked up the next time someone uses a land command or a transfer runs. An existing file is not rewritten.
+### 世界数据
 
-## 存档
+- 所有维度的权属保存在主世界 `data/landmod_claims.dat`，当前格式版本 2，包含宗地、成员和交易相关持久信息。
+- 版本 1 读入时每个旧区块生成独立宗地，原所有者、成员、名称、标记和未知字段保留；更高版本号和未知键尽量保留。
+- 同宗地编号下有不同主人/维度的异常旧数据会拆分整理；不是跨多个模组所有坏账的自动修复器。
+- 初售价格/开关在市场的 `data/marketmod_initial_land.dat`。银行和市场还有各自状态文件，**不要只备份 Land 单个文件**。
+- 停服备份整个世界和三个联动模块配置，避免只回滚权属却不回滚付款记录。
 
-所有维度的领地都写在主世界的 `data/landmod_claims.dat` 里。格式版本现在是 2。版本 1 的旧档会在读入时给每个区块单独生成一块宗地，主人、成员、名称、标记和原来不认识的键都保留，不会清空存档。下一次保存会把这些编号写回去。同一宗地编号下如果出现了不同主人或不同维度，读入时会拆成多块宗地，原来的编号留给排序后的第一组。更高的格式号会原样保留，这份代码不认识的键也会写回去。
+## 7. 开发接口与扩展边界
 
-Claims from every dimension are stored in the overworld file `data/landmod_claims.dat`. The format version is 2. A version 1 save still loads: each existing chunk becomes its own parcel, and the owner, members, name, flags, and unknown keys stay. The new ids are written on the next save. If one parcel id covers more than one owner or dimension, load splits it and keeps the original id on the first group. A higher format number is kept, and keys this version does not understand are written back out.
+服务端线程可调用 `dev.jdguo.land.api.LandApi`：
 
-## Xaero 地图
-
-地图显示是可选的。服务端、没装 Xaero 的客户端、以及原版客户端，领地保护都照常工作。
-
-如果客户端同时装了本模组和这两份地图模组，已占领的区块会画在世界地图和小地图上：
-
-- Xaero's World Map 1.37.2（Fabric 1.20）
-- Xaero's Minimap 23.9.3（Fabric 1.20）
-
-你自己的领地是绿色，别人的领地是橙色。同一宗地的区块连在一起，宗地交界处画边，哪怕两边是同一个主人。鼠标停在上面时，有名称就显示名称、主人和块数，没有名称就显示主人、块数和编号前 8 位。
-
-本模组编译时对照的是这两份官方 highlighter API：
-
-- 世界地图：`xaero.map.highlight.AbstractHighlighter`、`ChunkHighlighter`、`HighlighterRegistry`
-- 小地图：`xaero.common.minimap.highlight` 下同名的一套
-
-它们都是 `compileOnly`，不会打进 jar，也没有写进 `depends`。这两份版本会在地图会话里创建注册表，登记自己的内容后立刻调用 `end()` 把列表冻住，中间没有公开事件。因此客户端在 `end()` 一开始、列表还没冻住时登记自己的 highlighter。没装对应地图模组时，这个 mixin 不会启用。
-
-Xaero is optional. Dedicated servers and clients without those map mods still protect claims. Vanilla clients need no land mod, no map mod, and no resource pack.
-
-When the client has this mod plus Xaero's World Map 1.37.2 and Minimap 23.9.3 for Fabric 1.20, claimed chunks are drawn on both maps. Your claims are green. Other players' claims are orange. Chunks in the same parcel share a fill, and a border is drawn where the parcel changes, including between two parcels of one owner. The hover text shows the parcel name, owner, and chunk count. An unnamed parcel shows the owner, the chunk count, and the first 8 digits of its id.
-
-The jars are a compile-only dependency. In these versions each highlighter registry is sealed inside `end()` with no public registration event before that, so the client mixin registers at the start of `end()`. The mixin is skipped when that map mod is absent.
-
-## 给银行和市场用的接口
-
-本模组不算钱，也不做担保。别的模组在服务端线程调用 `dev.jdguo.land.api.LandApi`。
-
-面积用区块数。`ParcelInfo.chunkCount()` 是宗地里有几块 16×16 的区块，`blockCount()` 是 `chunkCount * 256`，表示水平方块列，不是体积。方块坐标换成区块要用算术右移 `block >> 4`，负数才不会错；`LandApi.parcelAtBlock` 已经这样算。
-
-交易和抵押可以这样接：
-
-- `LandApi.transferParcel` 转让整块宗地。`reference` 留给托管单号，命令触发时是空字符串。
-- `LandApi.transferChunk` / `transferChunks` 转让一块或几块。没有覆盖整块宗地时，这些区块会拆成买方的一块新宗地。
-- `LandApi.split` 把选出的区块拆成原主人仍持有的新宗地，至少要留下一块。
-- `LandApi.seizeParcel` / `seizeChunk` 不要求当前主人在场，给抵押没收用。`respectLimit` 为 false 时不看数量上限。
-- `LandApi.putParcelFlag` 和区块上的 `Flags` 用来记抵押或托管标记。合并时目标宗地已有的同名标记优先，被盖掉的来源标记会收进目标的 `Absorbed` 里，不直接丢掉。
-- `ClaimGates.register` 可以拒绝占领、并入、放弃、信任、拆分、合并、改名、转让和没收。整块转让会走 `allowParcelTransfer`，每一块还会再走 `allowTransfer`。从大宗地里卖出几块时还会走 `allowSplit`。锁定抵押时这几个都要拒绝，只在 `reference` 对上借据时放行 `allowSeizeParcel`。
-- `LandEvents.register` 在变更已经写入之后通知。只含一块的宗地被转让时走 `afterParcelTransfer`。从大宗地拆出去卖掉走 `afterChunkTransfer`。没收整块走 `afterSeizeParcel`。
-
-玩家命令不调用没收。
-
-There is still no currency, debt ledger, or shop in this mod. Another mod calls `dev.jdguo.land.api.LandApi` on the server thread.
-
-Valuation uses the chunk count. `ParcelInfo.chunkCount()` is the number of 16×16 chunks. `blockCount()` is `chunkCount * 256` horizontal columns, not a volume. Convert a block coordinate with `block >> 4`; `LandApi.parcelAtBlock` does that, including for negative coordinates.
-
-- `LandApi.transferParcel` transfers a whole parcel. `reference` is an escrow id; player commands pass an empty string.
-- `LandApi.transferChunk` and `transferChunks` transfer one chunk or several. A partial set is carved into one new parcel for the buyer. Transferring every chunk keeps the parcel id.
-- `LandApi.split` carves selected chunks into a new parcel the same owner still holds. One chunk of the source has to remain.
-- `LandApi.seizeParcel` and `seizeChunk` change ownership without the current owner. They are the collateral path. `respectLimit` false skips the chunk cap.
-- `LandApi.putParcelFlag`, and the per-chunk `Flags` compound, store collateral or escrow markers. On merge, the target keeps a conflicting flag and the displaced source flags are kept under `Absorbed` on the target.
-- `ClaimGates.register` can veto claim, join, abandon, trust, split, merge, rename, transfer, and seizure. A whole-parcel transfer calls `allowParcelTransfer` and `allowTransfer` for each chunk. Selling some chunks of a larger parcel also calls `allowSplit`. A collateral lock should veto those, and allow `allowSeizeParcel` only when `reference` matches the loan.
-- `LandEvents.register` runs after the change is stored. Transferring a one-chunk parcel fires `afterParcelTransfer`. A partial sale fires `afterChunkTransfer`. Seizing a whole parcel fires `afterSeizeParcel`.
-
-Player commands do not seize land.
-
-## 可选的地图界面
-
-`landmod-ui-1.0.0.jar` 是单独的客户端包，不进银行界面，服务器也不需要装。不装它时，原版客户端、箱子界面和原来的命令都照常可用，进服不受影响。
-
-装了以后，默认按 K（控制设置里叫「领地」）会打开区块网格。如果同时装了 Xaero 世界地图，地图左上角有「领地」按钮，打开点选后可以在地图上点 16×16 区块或整块宗地，再点「购买」或「出售」。小地图设置里也有一颗「领地」按钮，打开同一张网格。
-
-出售和购买在服务端完成，走已经有的整块宗地转让，或把列出的区块拆出去再转让。聊天仍然是 `[领地]`。命令是：
-
-| 命令 | 作用 |
+| 接口 | 职责 |
 | --- | --- |
-| `/land sell parcel` | 把脚下整块宗地标为出售 |
-| `/land sell chunks` | 把标记的区块，或脚下这一块，标为出售 |
-| `/land sell cancel` | 取消脚下宗地的出售 |
-| `/land buy` | 买下脚下的出售。整块在售就买整块，只卖这一块就买这一块 |
-| `/land buy parcel` | 买下脚下整块宗地 |
-| `/land buy chunks` | 买下标记的、或脚下这一块在售的区块 |
+| `parcelAtBlock`、`ParcelInfo` | 查询宗地；区块换算使用算术右移，负坐标正确处理 |
+| `transferParcel` | 整宗地转让，保留交易 `reference` |
+| `transferChunk` / `transferChunks` | 部分区块转让，必要时拆出新宗地 |
+| `split` | 从原宗地拆出子集，原宗地至少保留一块 |
+| `seizeParcel` / `seizeChunk` | 提供给外部抵押/管理的没收能力，不是玩家命令 |
+| `putParcelFlag`、区块 `Flags` | 存放外部托管或抵押标志 |
 
-没有标价。银行模组仍可用 `ClaimGate` 拦住没有托管单号的转让；地图和命令买地时带的单号是 `sale:` 加出售编号。
+`ClaimGates` 为认领、拆分、合并、转让、信任、没收等提供否决钩子；`LandEvents` 在状态变更后通知。整宗地转让同时检查整宗地及逐区块 gate，部分出售还检查拆分 gate。标志本身不是自动强制锁，外部系统必须注册相应 gate；提供没收接口也不等于本模组已实现完整贷款/违约系统。
 
-`landmod-ui-1.0.0.jar` is a separate client mod. It is not part of a bank screen, and the server does not need it. Without it, a vanilla client, chest screens, and the existing commands still work, and joining is unchanged.
+面积接口 `blockCount()` 为 `chunkCount × 256` 的水平列数，不是体积。合并冲突标志保留目标值，并把来源冲突收进 `Absorbed`，避免简单覆盖。
 
-With it, K opens a chunk grid (the control is named Land). If Xaero's World Map is also installed, the map has a Land button: turn picking on, click 16×16 chunks or a whole parcel, then Buy or Sell. Xaero's Minimap settings screen has a Land button that opens the same grid.
+## 8. 常见问题与验证范围
 
-The purchase runs on the server. A parcel listing transfers the whole parcel. A chunk listing splits those chunks off and transfers them. Chat stays `[领地]`. The commands are `/land sell parcel`, `/land sell chunks`, `/land sell cancel`, `/land buy`, `/land buy parcel`, and `/land buy chunks`.
+- **只有箱子、没有地图 UI？** 原版客户端正常使用命令/原版菜单；增强地图要在客户端装同一主包。Market 的交易确认 UI 还取决于市场客户端能力。不要装旧独立 UI 包。
+- **K 无效或地图不显示？** 检查按键冲突、客户端与服务器 Land 版本、服务器通道和日志；先用内置网格隔离 Xaero 兼容问题。
+- **新默认价没有改变旧世界？** 这是有意保留设置；在管理页读取现值、填建议价、检查币种/开关，再保存。
+- **选中了却不能买？** 检查初售是否开启、是否有实际挂牌、所选是否同维度且符合订单、上限/余额/精度、Market/Bank 是否兼容。地图缓存不是购买承诺。
+- **能领地保护但机器仍能破坏？** 并非所有 Fabric 模组行为都走已拦截的原版事件，见保护范围。
 
-There is no price in this mod. A bank gate can still veto a transfer whose reference is not an escrow id. Map and command purchases pass `sale:` plus the listing id.
+当前发布有自动构建、回归及客户端/服务端隔离检查。它们不等于所有服务器、Xaero 版本、GUI 缩放、真实多人网络和第三方自动化设备都经过实机验证。反馈问题时附双方版本、具体操作、客户端和服务端 `latest.log`，崩溃时另附 `crash-reports`；分享前移除隐私与凭据。
 
-## 构建
+## 9. 构建与许可
 
-需要 Java 17。当前工程用 Java 21 运行 Gradle，编译目标是 17。
-
+```bash
+./gradlew test build
 ```
-./gradlew build
-```
 
-给玩家或服务器用的是重映射后的 `build/libs/landmod-1.0.0.jar`。客户端界面已内置于同一个主模组 JAR。都不要用带 `-dev` 或 `-sources` 的那个。
+Windows 使用 `gradlew.bat test build`。项目以 Java 17 为运行/编译目标；Gradle 运行 JDK 要与当前 Loom/Gradle 版本兼容。正式分发重映射后的 `build/libs/landmod-1.0.8.jar`，不是 `-dev` 或 `-sources` 包。构建需要联网获取 Fabric、Minecraft 和可选地图的编译依赖。
 
-Java 17 is the target. `./gradlew build` runs the tests and writes `build/libs/landmod-1.0.0.jar` with the optional client UI embedded.
-
-## 许可
-
-MIT License. Copyright (c) 2026 heplus1s.
-
-### 土地交易统一市场结算
-
-此版本将 `/land sell parcel`、`/land sell chunks`、`/land buy`、地图交易请求和撤销请求交给兼容市场模组的原版箱子确认页。卖方确认价格及货币后才挂牌；买方确认市场整单总价后才通过银行扣款并过户。打开页面不等于成交，不清除选区。不安装或未更新市场时拒绝交易，绝不回退到免费购买。
-
-旧版无价格销售记录不会被自动定价或成交，需卖方重新在市场挂牌。`/land transfer` 等明确赠与/管理命令保持原意；市场挂牌锁仍限制挂牌中的直接转移。本次不改变无主地认领规则。需同时更新市场 `dot/land-market` 版本；地图旧销售标记不代表市场实际可购买状态，以市场确认页为准。
-
-
-## 内置客户端界面
-
-本主模组 JAR 同时包含服务端逻辑与可选客户端界面。服务器安装后，原版客户端无需安装本模组即可使用原有命令/原版菜单。客户端安装同一 JAR 可启用增强界面；界面只在客户端入口加载，服务端保持交易权威。
-
-升级时请移除旧 `landmod-ui` 独立 JAR；同时安装会由 Fabric Loader 明确拒绝，以避免重复接收器、快捷键和类冲突。不要保留同一主模组的两个版本。只安装本地客户端不会改变远端服务器数据；不支持相关网络通道的服务器不会接收本 UI 操作。
-
-兼容性验收仍需分别执行：专用服务器+原版客户端、Fabric空客户端、完整客户端、单人世界切换远程服务器、旧 UI 包并存的拒绝提示、协议不匹配时的基础入口。构建通过不等同于实际联机验收。
-
-## 宗地界面命名（v1.0.5）
-
-按 K 打开领地网格（或在 Xaero 世界地图工具栏），选中自己同一宗地内的一个或多个区块，点击“命名”。输入名称后点击“保存名称”，以服务器回执为准。支持中文，最多32个字符；留空保存可清除。选择多块不同宗地、他人宗地或无主地时不可保存。命令 `/land parcel rename <名称>` 继续可用。
-
-### 地图权限与领地提示
-
-在领地图或 Xaero 世界地图选择**一个区块**，点击「权限」。界面显示该区块成员，输入玩家名可添加（玩家须在线）或移除成员（可离线）。权限仍沿用原版规则：仅区块所有者可管理成员，成员可建造、拆除及打开容器，OP 可绕过领地保护；门、按钮、拉杆仍保持原有开放行为。本次没有引入新的权限种类。服务器每次重新检查所有权，过期界面不能在转让后继续授权。无客户端模组仍可使用 `/land trust <玩家>`、`/land untrust <玩家>`，作用于脚下区块。
-
-进入已认领区块时，上方显示「领地名 · 所有者」，未命名时显示「未命名领地」。离开领地隐藏，跨维度、改名、转让后同步更新；使用原版 BossBar 协议，不要求客户端安装领地模组，也不会强制加载区块。
+MIT License，见 [LICENSE](LICENSE)。
