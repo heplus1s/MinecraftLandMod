@@ -22,6 +22,7 @@ public final class ParcelRename {
                 if (buf.isReadable()) return;
             } catch (RuntimeException invalid) { return; }
             server.execute(() -> {
+                if (!dev.jdguo.land.network.RequestAccess.current(server.getPlayerManager().getPlayer(player.getUuid()), player, player.networkHandler, handler)) return;
                 var result = ClaimSavedData.get(server).renameParcel(player, parcel, name);
                 String message = switch (result.denial()) {
                     case NONE -> name.trim().isEmpty() ? "已清除宗地名称" : "宗地名称已保存";

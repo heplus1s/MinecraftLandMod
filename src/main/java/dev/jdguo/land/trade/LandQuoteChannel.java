@@ -23,6 +23,7 @@ public final class LandQuoteChannel {
                 payload = buf.readString(32767);
             } catch (RuntimeException malformed) { return; }
             server.execute(() -> {
+                if (!dev.jdguo.land.network.RequestAccess.current(server.getPlayerManager().getPlayer(player.getUuid()), player, player.networkHandler, handler)) return;
                 if (!ServerPlayNetworking.canSend(player, RESPONSE)) return;
                 String result;
                 try {
@@ -36,7 +37,7 @@ public final class LandQuoteChannel {
                         result = (String) api.getMethod("quote", MinecraftServer.class, UUID.class, String.class, int[].class)
                                 .invoke(null, server, player.getUuid(), input.get("dimension").getAsString(), coordinates);
                     } else if (operation.equals("manage")) {
-                        if (!player.hasPermissionLevel(2)) {
+                        if (!dev.jdguo.land.network.RequestAccess.mayManage(true, player.hasPermissionLevel(2))) {
                             result = error("只有管理员可以修改默认地价。");
                         } else {
                             result = (String) api.getMethod("manage", MinecraftServer.class, UUID.class, String.class)

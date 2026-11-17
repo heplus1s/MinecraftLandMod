@@ -25,6 +25,7 @@ public final class LandTradeClient {
             tell(client, "还没有选中区块。");
             return;
         }
+        if (!validDimensions(client, keys)) return;
         if (coversParcel(keys)) {
             send(TradeRequest.buyParcel(ClientClaims.get(keys.get(0).dimension(), keys.get(0).chunkX(), keys.get(0).chunkZ()).parcelId()));
             return;
@@ -38,6 +39,7 @@ public final class LandTradeClient {
             tell(client, "还没有选中区块。");
             return;
         }
+        if (!validDimensions(client, keys)) return;
         if (coversParcel(keys)) {
             send(TradeRequest.sellParcel(ClientClaims.get(keys.get(0).dimension(), keys.get(0).chunkX(), keys.get(0).chunkZ()).parcelId()));
             return;
@@ -57,6 +59,16 @@ public final class LandTradeClient {
             return;
         }
         send(TradeRequest.cancel(entry.parcelId()));
+    }
+
+    private static boolean validDimensions(MinecraftClient client, List<ClaimKey> keys) {
+        var network = client.getNetworkHandler();
+        for (var key : keys) {
+            if (network == null || network.getWorldKeys().stream().noneMatch(world -> world.getValue().toString().equals(key.dimension()))) {
+                tell(client, LandTradeFeedback.unknownDimension(key.dimension())); return false;
+            }
+        }
+        return true;
     }
 
     private static boolean coversParcel(List<ClaimKey> keys) {
@@ -98,6 +110,7 @@ public final class LandTradeClient {
     }
 
     private static void tell(MinecraftClient client, String body) {
+        LandQuotes.notice(body);
         if (client.player != null) {
             client.player.sendMessage(LandMessages.chat(body), false);
         }
