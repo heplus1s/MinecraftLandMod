@@ -22,6 +22,7 @@ public final class LandMod implements ModInitializer {
         LandCommands.register();
         ClaimProtection.register();
         ClaimSync.register();
+        dev.jdguo.land.network.ParcelRename.register();
         LandTrade.register();
         ChunkMarks.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {

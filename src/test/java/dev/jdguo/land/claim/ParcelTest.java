@@ -334,6 +334,22 @@ class ParcelTest {
     }
 
     @Test
+    void renameRejectsNonOwnerAndStaleParcelWithoutChangingTheName() {
+        ClaimMap map = new ClaimMap();
+        assertTrue(map.claim(OVERWORLD, 0, 0, ALICE, "Alice", 4).succeeded());
+        UUID parcel = map.get(OVERWORLD, 0, 0).parcelId();
+        assertTrue(map.renameParcel(ALICE, parcel, "旧名").succeeded());
+        assertEquals(ClaimMap.Denial.NOT_OWNER, map.renameParcel(UUID.randomUUID(), parcel, "盗改").denial());
+        assertEquals("旧名", map.info(parcel).name());
+        assertEquals(ClaimMap.Denial.PARCEL_NOT_FOUND, map.renameParcel(ALICE, UUID.randomUUID(), "失效").denial());
+        assertTrue(map.renameParcel(ALICE, parcel, "新名").succeeded());
+        assertTrue(map.renameParcel(ALICE, parcel, "新名").succeeded());
+        assertEquals("新名", map.get(OVERWORLD, 0, 0).name());
+        assertTrue(map.renameParcel(ALICE, parcel, "  ").succeeded());
+        assertEquals("", map.info(parcel).name());
+    }
+
+    @Test
     void renameCopiesTheNameOntoEveryChunkAndRejectsControlCharacters() {
         ClaimMap map = new ClaimMap();
         assertTrue(map.claim(OVERWORLD, 0, 0, ALICE, "Alice", 4).succeeded());
