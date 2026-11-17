@@ -211,6 +211,15 @@ public final class ClaimSavedData extends PersistentState {
         return result;
     }
 
+    /** Explicit map target. Ownership is checked by ClaimMap for every mutation. */
+    public ClaimMap.Result setMember(ServerPlayerEntity player, ClaimKey key, UUID memberId, String memberName, boolean add) {
+        ClaimMap.Result result = add
+                ? claims.trust(key.dimension(), key.chunkX(), key.chunkZ(), player.getUuid(), memberId, memberName)
+                : claims.untrust(key.dimension(), key.chunkX(), key.chunkZ(), player.getUuid(), memberId, memberName);
+        finish(result.succeeded());
+        return result;
+    }
+
     public ClaimMap.Result transfer(ServerPlayerEntity player, UUID newOwner, String newOwnerName, int maxClaims) {
         ClaimKey key = standing(player);
         boolean renamed = claims.updateName(player.getUuid(), player.getGameProfile().getName());
