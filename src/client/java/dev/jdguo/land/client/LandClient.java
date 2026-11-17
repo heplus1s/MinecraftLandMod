@@ -9,9 +9,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 public final class LandClient implements ClientModInitializer {
+    private static final InitialClaimSync initial = new InitialClaimSync();
     @Override
     public void onInitializeClient() {
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientClaims.clear());
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { ClientClaims.clear(); initial.reset(); });
         ClientPlayNetworking.registerGlobalReceiver(ClaimSync.CHANNEL, (client, handler, buf, responseSender) -> {
             ClaimSnapshot snapshot;
             try {
@@ -21,10 +22,20 @@ public final class LandClient implements ClientModInitializer {
                 return;
             }
             client.execute(() -> {
+                if (client.getNetworkHandler() != handler || client.player == null) return;
+                initial.received();
                 ClientClaims.replace(snapshot);
                 XaeroRefresh.mark();
             });
         });
-        ClientTickEvents.END_CLIENT_TICK.register(client -> XaeroRefresh.tick());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            XaeroRefresh.tick();
+            boolean connected = client.player != null && client.getNetworkHandler() != null;
+            if (initial.tick(connected, connected && ClientPlayNetworking.canSend(ClaimSync.CHANNEL))) {
+                var request = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create();
+                request.writeVarInt(1);
+                ClientPlayNetworking.send(ClaimSync.CHANNEL, request);
+            }
+        });
     }
 }

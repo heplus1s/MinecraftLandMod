@@ -16,6 +16,18 @@ public final class ClaimSync {
     }
 
     public static void register() {
+        // A JOIN-time send can precede Fabric's client channel advertisement.
+        // This optional request is sent only by clients that see our channel.
+        ServerPlayNetworking.registerGlobalReceiver(CHANNEL, (server, player, handler, buf, response) -> {
+            final int version;
+            try { version = buf.readVarInt(); } catch (RuntimeException malformed) { return; }
+            if (version != 1) return;
+            server.execute(() -> {
+                if (server.getPlayerManager().getPlayer(player.getUuid()) != player) return;
+                send(player, ClaimSavedData.get(server).claims().toSnapshot());
+                dev.jdguo.land.trade.LandTrade.send(player, server);
+            });
+        });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.player;
             ClaimSavedData data = ClaimSavedData.get(server);
