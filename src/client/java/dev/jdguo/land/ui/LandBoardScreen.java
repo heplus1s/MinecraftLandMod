@@ -41,8 +41,9 @@ public final class LandBoardScreen extends Screen {
         cell = layout.cell();
         originX = layout.x();
         originY = layout.y();
-        addDrawableChild(ButtonWidget.builder(Text.literal("管理"), button -> client.setScreen(new LandManageScreen(this)))
-                .dimensions(width / 2 + 30, 16, 44, 20).build());
+        if (LandQuotes.canManage()) addDrawableChild(ButtonWidget.builder(Text.literal("管理"), button -> {
+            if (LandQuotes.canManage()) client.setScreen(new LandManageScreen(this));
+        }).dimensions(width / 2 + 30, 16, 44, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("命名"), button -> client.setScreen(new ParcelNameScreen(this)))
                 .dimensions(width / 2 - 110, 16, 44, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("权限"), button -> client.setScreen(new ClaimPermissionsScreen(this)))

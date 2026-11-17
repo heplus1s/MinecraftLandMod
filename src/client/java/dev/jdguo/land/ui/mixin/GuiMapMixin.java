@@ -42,8 +42,9 @@ public class GuiMapMixin {
                 .dimensions(landui$left, landui$top + 48, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("权限"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ClaimPermissionsScreen(screen)))
                 .dimensions(landui$left + 52, landui$top + 48, 48, 20).build());
-        screen.addButton(ButtonWidget.builder(Text.literal("管理"), button -> MinecraftClient.getInstance().setScreen(new LandManageScreen(screen)))
-                .dimensions(landui$left + 104, landui$top + 48, 48, 20).build());
+        if (LandQuotes.canManage()) screen.addButton(ButtonWidget.builder(Text.literal("管理"), button -> {
+            if (LandQuotes.canManage()) MinecraftClient.getInstance().setScreen(new LandManageScreen(screen));
+        }).dimensions(landui$left + 104, landui$top + 48, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("领地"), button -> LandPick.toggle())
                 .dimensions(landui$left, landui$top, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal(LandPick.mode() == LandPick.Mode.PARCEL ? "宗地" : "区块"), button -> {
@@ -83,6 +84,13 @@ public class GuiMapMixin {
         GuiMapAccess access = (GuiMapAccess) screen;
         RegistryKey<World> dimension = access.land$dimension();
         if (dimension == null) {
+            return;
+        }
+        var network = MinecraftClient.getInstance().getNetworkHandler();
+        if (network == null || !network.getWorldKeys().contains(dimension)) {
+            LandPick.clear();
+            LandQuotes.notice(dev.jdguo.land.ui.LandTradeFeedback.unknownDimension(dimension.getValue().toString()));
+            cir.setReturnValue(true);
             return;
         }
         LandPick.click(dimension.getValue().toString(), access.land$blockX() >> 4, access.land$blockZ() >> 4);

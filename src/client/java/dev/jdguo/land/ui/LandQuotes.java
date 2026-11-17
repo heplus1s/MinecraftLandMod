@@ -12,6 +12,9 @@ import net.minecraft.client.MinecraftClient;
 public final class LandQuotes {
     private static int selectedGeneration = -1;
     private static int age;
+    private static String notice = "";
+    private static int noticeGeneration = -1;
+    public static void notice(String message) { notice = message; noticeGeneration = LandPick.generation(); }
     private static JsonObject quote = new JsonObject();
     private static JsonObject management = new JsonObject();
     private LandQuotes() {}
@@ -24,13 +27,13 @@ public final class LandQuotes {
                 if (client.getNetworkHandler() != handler || client.player == null) return;
                 try {
                     JsonObject value = JsonParser.parseString(json).getAsJsonObject();
-                    if (operation.equals("manage")) { management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); }
+                    if (operation.equals("manage")) { if (!canManage()) { clearManagement(); return; } management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); }
                     else if (generation == LandPick.generation()) { quote = value; age = 0; }
                 } catch (RuntimeException ignored) { }
             });
         });
     }
-    public static void reset() { selectedGeneration = -1; age = 0; quote = new JsonObject(); management = new JsonObject(); }
+    public static void reset() { selectedGeneration = -1; age = 0; notice = ""; noticeGeneration = -1; quote = new JsonObject(); management = new JsonObject(); }
     public static void tick(MinecraftClient client) {
         if (client.player == null || LandPick.selected().isEmpty()) return;
         if (selectedGeneration == LandPick.generation() && ++age < 100) return;
@@ -40,6 +43,9 @@ public final class LandQuotes {
         var keys = LandPick.selected();
         if (keys.size() > 1024) { quote.addProperty("reason", "报价范围最多 1024 块，请缩小选区。"); return; }
         String dimension = keys.get(0).dimension();
+        if (client.getNetworkHandler() != null && client.getNetworkHandler().getWorldKeys().stream().noneMatch(key -> key.getValue().toString().equals(dimension))) {
+            quote.addProperty("reason", LandTradeFeedback.unknownDimension(dimension)); return;
+        }
         JsonArray coords = new JsonArray();
         for (var key : keys) {
             if (!dimension.equals(key.dimension())) { quote.addProperty("reason", "不能跨维度报价。"); return; }
@@ -48,20 +54,32 @@ public final class LandQuotes {
         JsonObject input = new JsonObject(); input.addProperty("dimension", dimension); input.add("coordinates", coords);
         if (!send("quote", input)) quote.addProperty("reason", "服务器未提供选区报价接口。");
     }
+    public static boolean canManage() {
+        var client = MinecraftClient.getInstance();
+        return client.getNetworkHandler() != null && client.player != null && client.player.hasPermissionLevel(2);
+    }
+    public static void clearManagement() { management = new JsonObject(); }
     public static boolean send(String operation, JsonObject data) {
+        if (MinecraftClient.getInstance().getNetworkHandler() == null || ("manage".equals(operation) && !canManage())) return false;
         if (!ClientPlayNetworking.canSend(LandQuoteChannel.REQUEST)) return false;
         var packet = PacketByteBufs.create(); packet.writeVarInt(LandPick.generation());
         packet.writeString(operation); packet.writeString(data.toString(), 32767);
         ClientPlayNetworking.send(LandQuoteChannel.REQUEST, packet); return true;
     }
     public static String summary() {
+        if (noticeGeneration == LandPick.generation() && !notice.isBlank()) return notice;
         if (LandPick.selected().isEmpty()) return "请选择地块查看报价";
         if (selectedGeneration != LandPick.generation()) return "正在查询选区报价…";
+        if (quote.has("buyable") && !Boolean.parseBoolean(text(quote, "buyable", "false"))) return reason("不可购买");
         String total = text(quote, "total", "");
         if (!total.isBlank()) return "成交总价 " + total + " " + text(quote, "currencyName", text(quote, "currency", ""))
                 + " · " + text(quote, "chunks", "?") + " 块（完整成交范围）"
-                + (Boolean.parseBoolean(text(quote, "buyable", "false")) ? "" : " · " + text(quote, "reason", "不可购买"));
-        return text(quote, "reason", "正在查询选区报价…");
+                + (Boolean.parseBoolean(text(quote, "buyable", "false")) ? "" : " · " + reason("不可购买"));
+        return reason("正在查询选区报价…");
+    }
+    private static String reason(String fallback) {
+        var keys = LandPick.selected();
+        return LandTradeFeedback.reason(text(quote, "reason", fallback), keys.isEmpty() ? "" : keys.get(0).dimension());
     }
     public static JsonObject management() { return management; }
     public static String text(JsonObject object, String key, String fallback) {

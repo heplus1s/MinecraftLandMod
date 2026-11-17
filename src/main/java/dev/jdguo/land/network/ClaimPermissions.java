@@ -25,6 +25,7 @@ public final class ClaimPermissions {
                 if (buf.isReadable() || action > 2) return;
             } catch (RuntimeException invalid) { return; }
             server.execute(() -> {
+                if (!dev.jdguo.land.network.RequestAccess.current(server.getPlayerManager().getPlayer(player.getUuid()), player, player.networkHandler, handler)) return;
                 var data = ClaimSavedData.get(server);
                 var claim = data.claims().get(key.dimension(), key.chunkX(), key.chunkZ());
                 boolean owner = claim != null && player.getUuid().equals(claim.owner());

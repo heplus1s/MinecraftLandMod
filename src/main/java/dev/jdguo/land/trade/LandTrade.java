@@ -32,7 +32,10 @@ public final class LandTrade {
                 LandMod.LOGGER.warn("Ignored a land trade packet", exception);
                 return;
             }
-            server.execute(() -> apply(player, request));
+            server.execute(() -> {
+                if (!dev.jdguo.land.network.RequestAccess.current(server.getPlayerManager().getPlayer(player.getUuid()), player, player.networkHandler, handler)) return;
+                apply(player, request);
+            });
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> send(handler.player, server));
     }

@@ -18,6 +18,11 @@ public final class LandManageScreen extends Screen {
     private String localMessage = "";
     public LandManageScreen(Screen parent) { super(Text.literal("领地管理")); this.parent = parent; }
     @Override protected void init() {
+        if (!LandQuotes.canManage()) {
+            LandQuotes.clearManagement();
+            addDrawableChild(ButtonWidget.builder(Text.literal("无管理员权限，返回"), button -> close()).dimensions(8, 8, 160, 20).build());
+            return;
+        }
         if (width < 280 || height < 250) {
             addDrawableChild(ButtonWidget.builder(Text.literal("返回"), button -> close()).dimensions(8, 8, 80, 20).build());
             return;
@@ -69,6 +74,7 @@ public final class LandManageScreen extends Screen {
         localMessage = LandQuotes.send("manage", input) ? "正在读取服务器设置" : "服务器未提供管理接口";
     }
     public void receive(JsonObject data) {
+        if (!LandQuotes.canManage()) { LandQuotes.clearManagement(); close(); return; }
         boolean valid = data.has("ok") && data.get("ok").getAsBoolean() && data.has("price") && data.has("currency");
         if (reading && valid) {
             price.setText(LandQuotes.text(data, "price", ""));
@@ -87,9 +93,13 @@ public final class LandManageScreen extends Screen {
         }
         if (price != null) price.setEditable(active);
     }
+    @Override public void tick() {
+        if (!LandQuotes.canManage()) { LandQuotes.clearManagement(); close(); }
+    }
     @Override public void close() { client.setScreen(parent); }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context);
+        if (!LandQuotes.canManage()) { super.render(context, mouseX, mouseY, delta); return; }
         if (width < 280 || height < 250) {
             context.drawTextWithShadow(textRenderer, "请调小界面尺寸后设置（至少 280 × 250）", 8, 40, 0xFFFFAA);
             super.render(context, mouseX, mouseY, delta); return;

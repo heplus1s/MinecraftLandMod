@@ -348,7 +348,7 @@ public final class ClaimSavedData extends PersistentState {
             return market(player, null, "buy", keys);
         }
         if (first == null) {
-            player.sendMessage(dev.jdguo.land.message.LandMessages.chat("选中的是未认领区块，没有可购买的市场挂牌。无主地认领与二手地购买是不同操作。"), false);
+            player.sendMessage(dev.jdguo.land.message.LandMessages.chat(action.equals("sell") ? "选中的是无主地块，不能出售。请先购买取得所有权，再选择自己的领地出售。" : "选区混合了无主地块与已有领地，请分别选择购买。"), false);
             return new ClaimMap.Result(ClaimMap.Denial.NOT_CLAIMED, null, "");
         }
         for (ClaimKey key : keys) {
