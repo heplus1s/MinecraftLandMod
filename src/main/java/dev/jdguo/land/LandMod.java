@@ -24,6 +24,8 @@ public final class LandMod implements ModInitializer {
         ClaimSync.register();
         dev.jdguo.land.network.ParcelRename.register();
         LandTrade.register();
+        dev.jdguo.land.network.ClaimPermissions.register();
+        dev.jdguo.land.display.TerritoryDisplay.register();
         ChunkMarks.register();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             ClaimSavedData data = ClaimSavedData.get(server);

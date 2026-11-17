@@ -27,6 +27,21 @@ class ClaimMapTest {
     }
 
     @Test
+    void stalePermissionScreenCannotGrantAfterOwnershipTransfer() {
+        ClaimMap map = new ClaimMap();
+        assertTrue(map.claim(OVERWORLD, 2, 3, ALICE, "Alice", 8).succeeded());
+        assertTrue(map.trust(OVERWORLD, 2, 3, ALICE, CARA, "Cara").succeeded());
+        assertTrue(map.transfer(OVERWORLD, 2, 3, ALICE, BOB, "Bob", 8).succeeded());
+        assertEquals(ClaimMap.Denial.NOT_OWNER, map.trust(OVERWORLD, 2, 3, ALICE, CARA, "Cara").denial());
+        assertEquals(ClaimMap.Denial.NOT_OWNER, map.untrust(OVERWORLD, 2, 3, ALICE, CARA, "Cara").denial());
+        assertFalse(map.allowsChange(OVERWORLD, 32, 48, CARA, false));
+        assertTrue(map.trust(OVERWORLD, 2, 3, BOB, CARA, "Cara").succeeded());
+        assertTrue(map.allowsChange(OVERWORLD, 32, 48, CARA, false));
+        assertTrue(map.untrust(OVERWORLD, 2, 3, BOB, CARA, "Cara").succeeded());
+        assertFalse(map.allowsChange(OVERWORLD, 32, 48, CARA, false));
+    }
+
+    @Test
     void secondClaimOnTheSameChunkIsRejected() {
         ClaimMap map = new ClaimMap();
         assertTrue(map.claim(OVERWORLD, 3, -2, ALICE, "Alice", 8).succeeded());

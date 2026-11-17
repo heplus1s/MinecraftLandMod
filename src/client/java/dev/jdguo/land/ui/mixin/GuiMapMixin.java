@@ -40,6 +40,8 @@ public class GuiMapMixin {
         landui$toolbarVisible = true;
         screen.addButton(ButtonWidget.builder(Text.literal("命名"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ParcelNameScreen(screen)))
                 .dimensions(landui$left, landui$top + 48, 48, 20).build());
+        screen.addButton(ButtonWidget.builder(Text.literal("权限"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ClaimPermissionsScreen(screen)))
+                .dimensions(landui$left + 52, landui$top + 48, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("管理"), button -> MinecraftClient.getInstance().setScreen(new LandManageScreen(screen)))
                 .dimensions(landui$left + 104, landui$top + 48, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("领地"), button -> LandPick.toggle())
