@@ -12,15 +12,17 @@ import java.util.Map;
  * Offers the server has listed. Replaced as a whole when a sales packet arrives.
  */
 public final class ClientSales {
+    private static int revision;
+    public static int revision() { return revision; }
     private static volatile View view = View.EMPTY;
 
     private ClientSales() {
     }
 
-    public static void clear() { view = View.EMPTY; }
+    public static void clear() { view = View.EMPTY; revision++; dev.jdguo.land.client.xaero.XaeroRefresh.mark(); }
 
     public static void replace(SaleSnapshot snapshot) {
-        view = View.from(snapshot);
+        view = View.from(snapshot); revision++; dev.jdguo.land.client.xaero.XaeroRefresh.mark();
     }
 
     public static SaleInfo find(String dimension, int chunkX, int chunkZ) {

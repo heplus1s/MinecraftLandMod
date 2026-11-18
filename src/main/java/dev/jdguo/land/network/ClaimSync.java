@@ -49,6 +49,7 @@ public final class ClaimSync {
     }
 
     public static void send(ServerPlayerEntity player, ClaimSnapshot snapshot) {
+        ColorSync.send(player);
         if (!ServerPlayNetworking.canSend(player, CHANNEL)) {
             return;
         }

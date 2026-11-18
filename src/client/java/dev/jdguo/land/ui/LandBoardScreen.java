@@ -40,18 +40,18 @@ public final class LandBoardScreen extends Screen {
             LandQuotes.clearNotice();
             centered = true;
         }
+        addDrawableChild(ButtonWidget.builder(Text.literal("我的配色"), button -> client.setScreen(new OwnerColorScreen(this)))
+                .dimensions(Math.max(4, width - 70), 2, 64, 12).build());
         int span = RADIUS * 2 + 1;
         layout = LandBoardLayout.fit(width, height, span);
         cell = layout.cell();
         originX = layout.x();
         originY = layout.y();
-        if (LandQuotes.canManage()) addDrawableChild(ButtonWidget.builder(Text.literal("管理"), button -> {
+        if (LandQuotes.canManage()) addDrawableChild(ButtonWidget.builder(Text.literal("管理员"), button -> {
             if (LandQuotes.canManage()) client.setScreen(new LandManageScreen(this));
         }).dimensions(width / 2 + 30, 16, 44, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("命名"), button -> client.setScreen(new ParcelNameScreen(this)))
-                .dimensions(width / 2 - 110, 16, 44, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("权限"), button -> client.setScreen(new ClaimPermissionsScreen(this)))
-                .dimensions(width / 2 - 62, 16, 44, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("我的领地"), button -> client.setScreen(new PersonalLandScreen(this)))
+                .dimensions(width / 2 - 110, 16, 96, 20).build());
         int y = this.height - 48;
         int buttonWidth = Math.min(70, (width - 24) / 3);
         int left = (width - 3 * buttonWidth - 8) / 2;
@@ -126,11 +126,24 @@ public final class LandBoardScreen extends Screen {
                 int x = originX + col * cell;
                 int y = originY + row * cell;
                 context.fill(x, y, x + cell - 1, y + cell - 1, color(chunkX, chunkZ));
+                if (dimension != null && !LandPick.contains(dimension, chunkX, chunkZ) && ClientSales.forSale(dimension, chunkX, chunkZ)) {
+                    context.drawBorder(x, y, cell - 1, cell - 1, 0xFFE0C040);
+                }
             }
         }
         context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(LandQuotes.summary(), width - 16), 8, this.height - 72, 0xDDDDDD);
         context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth("中心区块 " + centerX + ", " + centerZ + " · 每格 16×16 方块", width - 16), 8, this.height - 60, 0xAAAAAA);
         super.render(context, mouseX, mouseY, delta);
+        if (dimension != null && mouseX >= originX && mouseY >= originY && mouseX < originX + span * cell && mouseY < originY + span * cell) {
+            int cx = centerX + (mouseX-originX)/cell - RADIUS, cz = centerZ + (mouseY-originY)/cell - RADIUS;
+            var entry = ClientClaims.get(dimension,cx,cz);
+            if (entry != null) {
+                String tip = entry.ownerName() + " · " + (entry.name().isBlank()?"未命名领地":entry.name());
+                if(ClientSales.forSale(dimension,cx,cz)) tip += " · 出售中（金边）";
+                if(LandPick.contains(dimension,cx,cz)) tip += " · 已选（蓝色）";
+                context.drawOrderedTooltip(textRenderer,textRenderer.wrapLines(Text.literal(tip),Math.min(240,width-24)),mouseX,mouseY);
+            }
+        }
         if (mouseY >= height - 74 && mouseY <= height - 62) {
             context.drawTooltip(textRenderer, Text.literal(LandQuotes.summary()), mouseX, mouseY);
         }
@@ -149,12 +162,6 @@ public final class LandBoardScreen extends Screen {
         if (entry == null) {
             return 0xFF2E2E2E;
         }
-        if (ClientSales.forSale(dimension, chunkX, chunkZ)) {
-            return 0xFFE0C040;
-        }
-        if (client != null && client.player != null && client.player.getUuid().equals(entry.owner())) {
-            return 0xFF2F8F4E;
-        }
-        return 0xFFD07A2A;
+        return 0xFF000000 | dev.jdguo.land.client.ClientOwnerColors.rgb(entry.owner());
     }
 }

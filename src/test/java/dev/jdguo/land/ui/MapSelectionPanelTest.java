@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MapSelectionPanelTest {
     @Test void prefersTopRightAndStaysInsideSmallScreens() {
-        for (int[] size : new int[][] {{1920,1080},{854,480},{320,240},{240,180},{168,124}}) {
+        for (int[] size : new int[][] {{1920,1080},{854,480},{320,240},{240,180},{168,148}}) {
             var r = MapSelectionPanel.place(size[0], size[1], List.of());
             assertNotNull(r); assertEquals(size[0] - 160, r.x()); assertEquals(8, r.y());
             assertTrue(r.x() >= 8 && r.y() >= 8 && r.x()+r.width() <= size[0]-8 && r.y()+r.height() <= size[1]-8);

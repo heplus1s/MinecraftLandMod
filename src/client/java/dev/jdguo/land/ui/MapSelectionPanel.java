@@ -22,10 +22,10 @@ public final class MapSelectionPanel {
         result.add(ellipsis); return List.copyOf(result);
     }
     public static Rect place(int width, int height, List<Rect> occupied) {
-        if (width < 168 || height < 124) return null;
+        if (width < 168 || height < 148) return null;
         int[] xs = { width - 160, Math.max(8, Math.min(width - 160, width / 2 - 24)), 8, (width - 152) / 2 };
-        for (int start : new int[] {8, 32}) for (int x : xs) for (int y = start; y + 108 <= height - 8; y += 12) {
-            Rect panel = new Rect(x, y, 152, 108);
+        for (int start : new int[] {8, 32}) for (int x : xs) for (int y = start; y + 132 <= height - 8; y += 12) {
+            Rect panel = new Rect(x, y, 152, 132);
             if (occupied.stream().noneMatch(panel::overlaps)) return panel;
         }
         return null;
