@@ -85,3 +85,12 @@ test {
 sourceSets.test.compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
 tasks.named("compileTestJava") { dependsOn tasks.named("clientClasses") }
+
+// A compile-only signature for the relocated Xaero 26.x tooltip compiler.
+// It is NEVER packaged: actual implementations always come from installed Xaero.
+sourceSets {
+    xaeroCompatApi { java.srcDir 'src/xaeroCompatApi/java' }
+}
+sourceSets.xaeroCompatApi.compileClasspath = sourceSets.main.compileClasspath
+sourceSets.client.compileClasspath += sourceSets.xaeroCompatApi.output
+tasks.named('compileClientJava') { dependsOn tasks.named('compileXaeroCompatApiJava') }

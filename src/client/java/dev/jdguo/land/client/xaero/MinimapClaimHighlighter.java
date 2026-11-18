@@ -40,4 +40,12 @@ public final class MinimapClaimHighlighter extends ChunkHighlighter {
             compiler.addLine(text);
         }
     }
+
+    // Xaero Minimap 26.x moved the compiler type; keep both JVM signatures.
+    public void addChunkHighlightTooltips(xaero.hud.minimap.info.render.compile.InfoDisplayCompiler compiler, RegistryKey<World> dimension, int chunkX, int chunkZ, int width) {
+        Text text = ClaimHighlighterLogic.tooltip(dimension, chunkX, chunkZ);
+        if (text != null) {
+            compiler.addLine(text);
+        }
+    }
 }

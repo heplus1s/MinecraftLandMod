@@ -52,4 +52,11 @@ public final class MiniSelectionHighlighter extends ChunkHighlighter {
             compiler.addLine(Text.literal("已选"));
         }
     }
+
+    // Xaero Minimap 26.x moved the compiler type; keep both JVM signatures.
+    public void addChunkHighlightTooltips(xaero.hud.minimap.info.render.compile.InfoDisplayCompiler compiler, RegistryKey<World> dimension, int chunkX, int chunkZ, int width) {
+        if (LandPick.contains(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), chunkX, chunkZ)) {
+            compiler.addLine(Text.literal("已选"));
+        }
+    }
 }

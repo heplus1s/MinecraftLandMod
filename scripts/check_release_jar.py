@@ -6,6 +6,7 @@ with zipfile.ZipFile(jar) as z:
  m=json.loads(z.read('fabric.mod.json'))
  assert m['version']=='1.0.11'
  assert m['environment']=='*'
+ assert not any(name.startswith('xaero/') and name.endswith('.class') for name in z.namelist()), 'Compile-only Xaero API must not ship'
  assert not m.get('jars'), 'Do not nest standalone UI artifacts'
  for entry in m['entrypoints']['main']+m['entrypoints']['client']:
   assert entry.replace('.','/')+'.class' in z.namelist(),entry
