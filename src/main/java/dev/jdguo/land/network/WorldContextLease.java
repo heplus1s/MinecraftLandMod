@@ -24,6 +24,7 @@ public final class WorldContextLease {
                 && this.token != null && this.token.equals(token) && now < expires;
     }
     public String dimension() { return dimension; }
+    public boolean belongsTo(Object connection) { return this.connection == connection && connection != null; }
     public String token() { return token; }
     public void clear() { connection = world = null; token = dimension = null; expires = 0; }
 }

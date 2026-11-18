@@ -27,6 +27,9 @@ public final class LandQuoteChannel {
                 if (!ServerPlayNetworking.canSend(player, RESPONSE)) return;
                 String result;
                 try {
+                    if (operation.equals(dev.jdguo.land.network.CurrentWorldContext.QUOTE_OPERATION)) {
+                        result = dev.jdguo.land.network.CurrentWorldContext.quoteContext(player, payload);
+                    } else {
                     Class<?> api = Class.forName("dev.jdguo.market.api.LandMarketTerminal");
                     if (operation.equals("quote")) {
                         JsonObject input = JsonParser.parseString(payload).getAsJsonObject();
@@ -44,10 +47,19 @@ public final class LandQuoteChannel {
                                     .invoke(null, server, player.getUuid(), payload);
                         }
                     } else return;
+                    }
                 } catch (ReflectiveOperationException | LinkageError missing) {
                     result = error("市场版本未提供报价或管理接口，请更新市场模组。");
                 } catch (RuntimeException invalid) {
                     result = error("请求无效，请重新选择地块。");
+                }
+                if (operation.equals("quote")) {
+                    try {
+                        var diagnostic = JsonParser.parseString(result).getAsJsonObject();
+                        diagnostic.addProperty("serverDimension", player.getWorld().getRegistryKey().getValue().toString());
+                        diagnostic.addProperty("requestedDimension", JsonParser.parseString(payload).getAsJsonObject().get("dimension").getAsString());
+                        result = diagnostic.toString();
+                    } catch (RuntimeException invalid) { /* Preserve the original error reply. */ }
                 }
                 var out = PacketByteBufs.create();
                 out.writeVarInt(generation);

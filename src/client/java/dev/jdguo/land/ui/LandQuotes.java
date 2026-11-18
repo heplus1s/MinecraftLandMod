@@ -28,6 +28,9 @@ public final class LandQuotes {
                 if (client.getNetworkHandler() != handler || client.player == null) return;
                 try {
                     JsonObject value = JsonParser.parseString(json).getAsJsonObject();
+                    if (operation.equals(dev.jdguo.land.network.CurrentWorldContext.QUOTE_OPERATION)) {
+                        ClientWorldContext.acceptQuote(client, handler, value); return;
+                    }
                     if (operation.equals("manage")) { if (!canManage()) { clearManagement(); return; } management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); }
                     else if (generation == LandPick.generation()) { quote = value; age = 0; }
                 } catch (RuntimeException ignored) { }
@@ -80,7 +83,12 @@ public final class LandQuotes {
     }
     private static String reason(String fallback) {
         var keys = LandPick.selected();
-        return LandTradeFeedback.reason(text(quote, "reason", fallback), keys.isEmpty() ? "" : keys.get(0).dimension());
+        String reason = text(quote, "reason", fallback);
+        String message = LandTradeFeedback.reason(reason, keys.isEmpty() ? "" : keys.get(0).dimension());
+        if ("rejected:dimension".equals(reason)) message += " 服务端当前世界："
+                + text(quote, "serverDimension", "旧报价接口未报告") + "；收到的选区："
+                + text(quote, "requestedDimension", "未报告") + "；" + ClientWorldContext.diagnostic(MinecraftClient.getInstance());
+        return message;
     }
     public static JsonObject management() { return management; }
     public static String text(JsonObject object, String key, String fallback) {

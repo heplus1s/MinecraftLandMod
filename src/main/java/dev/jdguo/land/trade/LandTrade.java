@@ -27,15 +27,20 @@ public final class LandTrade {
         dev.jdguo.land.network.CurrentWorldContext.register();
         ServerPlayNetworking.registerGlobalReceiver(CHANNEL, (server, player, handler, buf, responseSender) -> {
             TradeRequest request;
+            final String contextToken;
             try {
-                request = TradeRequest.read(buf);
+                var envelope = dev.jdguo.land.network.ContextTradeEnvelope.read(buf);
+                request = envelope.request(); contextToken = envelope.token();
             } catch (RuntimeException exception) {
                 LandMod.LOGGER.warn("Ignored a land trade packet", exception);
                 return;
             }
             server.execute(() -> {
                 if (!dev.jdguo.land.network.RequestAccess.current(server.getPlayerManager().getPlayer(player.getUuid()), player, player.networkHandler, handler)) return;
-                apply(player, request);
+                if (contextToken != null) dev.jdguo.land.network.CurrentWorldContext.applyBound(player, handler, contextToken, request);
+                else if (dev.jdguo.land.network.CurrentWorldContext.requiresBound(player, handler)) {
+                    player.sendMessage(dev.jdguo.land.message.LandMessages.chat("当前会话需要世界确认，缺少确认凭据，未执行交易。"), false);
+                } else apply(player, request);
             });
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> send(handler.player, server));
