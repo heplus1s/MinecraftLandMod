@@ -20,7 +20,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: integrated-mod-jars
-          path: build/libs/landmod-1.0.10.jar
+          path: build/libs/landmod-1.0.11.jar
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
@@ -38,8 +38,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh release view v1.0.10 >/dev/null 2>&1; then
-            echo "Release v1.0.10 already exists; refusing to replace it."
+          if gh release view v1.0.11 >/dev/null 2>&1; then
+            echo "Release v1.0.11 already exists; refusing to replace it."
             exit 1
           fi
-          gh release create v1.0.10 release-jars/landmod-1.0.10.jar --target "$GITHUB_SHA" --title "v1.0.10 联机领地维度与选区修复" --notes-file RELEASE_NOTES_1.0.10.md
+          gh release create v1.0.11 release-jars/landmod-1.0.11.jar --target "$GITHUB_SHA" --title "v1.0.11 代理链路世界确认兼容修复" --notes-file RELEASE_NOTES_1.0.11.md
