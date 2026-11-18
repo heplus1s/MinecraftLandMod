@@ -44,6 +44,26 @@ public final class LandApi {
     private LandApi() {
     }
 
+    private record OwnerIndex(int revision, String dimension, int radius, dev.jdguo.land.claim.NearbyOwners.Index index) {}
+    private static final java.util.Map<ClaimMap, OwnerIndex> OWNER_INDEXES = new java.util.WeakHashMap<>();
+
+    /** Distinct owners within an inclusive square chunk radius, per queried chunk.
+     * No world loading and no block scanning. Caller must be on the server thread. */
+    public static int[] nearbyOwnerCounts(MinecraftServer server, String dimension, int[] coordinates, int radius) {
+        if (server == null || !server.isOnThread() || radius < 0 || radius > 128
+                || coordinates == null || coordinates.length == 0 || coordinates.length > 2048 || coordinates.length % 2 != 0)
+            throw new IllegalArgumentException("pricing selection");
+        ClaimMap map = claims(server);
+        OwnerIndex cached = OWNER_INDEXES.get(map);
+        if (cached == null || cached.revision() != map.revision() || cached.radius() != radius || !cached.dimension().equals(dimension)) {
+            var candidates = map.all().stream().filter(c -> c.dimension().equals(dimension))
+                    .map(c -> new dev.jdguo.land.claim.NearbyOwners.Owned(c.chunkX(), c.chunkZ(), c.owner())).toList();
+            cached = new OwnerIndex(map.revision(), dimension, radius, new dev.jdguo.land.claim.NearbyOwners.Index(candidates, radius));
+            OWNER_INDEXES.put(map, cached);
+        }
+        return cached.index().count(coordinates);
+    }
+
     /** Read-only initial-sale validation. Coordinates are chunk x,z pairs. */
     public static String initialGrantCheck(MinecraftServer server, UUID buyer, String dimension, int[] coordinates) {
         if (server == null || !server.isOnThread() || buyer == null) return "rejected:thread_or_buyer";
