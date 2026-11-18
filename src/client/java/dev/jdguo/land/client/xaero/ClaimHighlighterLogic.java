@@ -45,13 +45,15 @@ public final class ClaimHighlighterLogic {
         }
         int rgb = dev.jdguo.land.client.ClientOwnerColors.rgb(entry.owner());
         int fill = dev.jdguo.land.color.OwnerColorPalette.xaeroArgb(rgb, 0x66);
-        boolean sale = dev.jdguo.land.ui.ClientSales.forSale(dim, chunkX, chunkZ);
+        var listing = dev.jdguo.land.ui.ClientSales.find(dim, chunkX, chunkZ);
+        UUID saleId = listing == null ? null : listing.id();
+        boolean sale = saleId != null;
         int edge = dev.jdguo.land.color.OwnerColorPalette.xaeroArgb(sale ? SALE_RGB : rgb, 0xFF);
         store[0] = fill;
-        store[1] = border(dim, chunkX, chunkZ - 1, entry.parcelId()) ? edge : fill;
-        store[2] = border(dim, chunkX + 1, chunkZ, entry.parcelId()) ? edge : fill;
-        store[3] = border(dim, chunkX, chunkZ + 1, entry.parcelId()) ? edge : fill;
-        store[4] = border(dim, chunkX - 1, chunkZ, entry.parcelId()) ? edge : fill;
+        store[1] = border(dim, chunkX, chunkZ - 1, entry.parcelId(), saleId) ? edge : fill;
+        store[2] = border(dim, chunkX + 1, chunkZ, entry.parcelId(), saleId) ? edge : fill;
+        store[3] = border(dim, chunkX, chunkZ + 1, entry.parcelId(), saleId) ? edge : fill;
+        store[4] = border(dim, chunkX - 1, chunkZ, entry.parcelId(), saleId) ? edge : fill;
         return true;
     }
 
@@ -73,9 +75,11 @@ public final class ClaimHighlighterLogic {
         return Text.literal(entry.name() + "（" + owner + "） · " + size);
     }
 
-    private static boolean border(String dimension, int chunkX, int chunkZ, UUID parcelId) {
+    private static boolean border(String dimension, int chunkX, int chunkZ, UUID parcelId, UUID saleId) {
         ClientClaims.Entry neighbor = ClientClaims.get(dimension, chunkX, chunkZ);
-        return neighbor == null || parcelId == null || !parcelId.equals(neighbor.parcelId());
+        var neighborSale = dev.jdguo.land.ui.ClientSales.find(dimension, chunkX, chunkZ);
+        return dev.jdguo.land.client.ClaimColorBoundary.isBoundary(parcelId, saleId,
+                neighbor == null ? null : neighbor.parcelId(), neighborSale == null ? null : neighborSale.id());
     }
 
     private static UUID selfId() {

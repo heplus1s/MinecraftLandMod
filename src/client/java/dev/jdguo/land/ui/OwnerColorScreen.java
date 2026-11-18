@@ -34,7 +34,7 @@ public final class OwnerColorScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("返回"),b->close()).dimensions(x,height-26,w,20).build());
         setInitialFocus(value);updateButtons();
     }
-    private void updateButtons(){save.active=reset.active=!pending&&client.player!=null&&ClientOwnerColors.supported();}
+    private void updateButtons(){save.active=reset.active=!pending&&client.player!=null&&ClientOwnerColors.supported()&&ClientOwnerColors.ready();}
     private void submit(boolean automatic){
         if(client.player==null||pending)return;
         try{expected=automatic?OwnerColorPalette.color(client.player.getUuid()):OwnerColorPalette.parseHex(value.getText());}
@@ -61,7 +61,7 @@ public final class OwnerColorScreen extends Screen {
         ctx.drawTextWithShadow(textRenderer,"当前："+OwnerColorPalette.hex(rgb)+" · 输入六位 HEX",x,28,0xCCCCCC);
         int preview=rgb;try{preview=OwnerColorPalette.parseHex(value.getText());}catch(IllegalArgumentException ignored){}
         ctx.fill(x+w-22,44,x+w-2,64,0xFF000000|preview);
-        String message=ClientOwnerColors.supported()?status:"服务器未提供颜色设置；当前使用自动配色。";
+        String message=ClientOwnerColors.supported()?(ClientOwnerColors.ready()?status:"正在同步服务器颜色，请稍候。"):"服务器未提供颜色设置；当前使用自动配色。";
         var lines=textRenderer.wrapLines(Text.literal(message),w);
         int max=Math.max(0,(height-158)/10);
         for(int i=0;i<Math.min(max,lines.size());i++)ctx.drawTextWithShadow(textRenderer,lines.get(i),x,124+i*10,0xFFFFBB);
