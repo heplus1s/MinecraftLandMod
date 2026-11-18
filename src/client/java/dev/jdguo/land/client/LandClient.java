@@ -12,7 +12,8 @@ public final class LandClient implements ClientModInitializer {
     private static final InitialClaimSync initial = new InitialClaimSync();
     @Override
     public void onInitializeClient() {
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { ClientClaims.clear(); initial.reset(); });
+        ClaimDisplayPreferences.load(); ClientOwnerColors.register();
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { ClientClaims.clear(); ClientOwnerColors.reset(); initial.reset(); });
         ClientPlayNetworking.registerGlobalReceiver(ClaimSync.CHANNEL, (client, handler, buf, responseSender) -> {
             ClaimSnapshot snapshot;
             try {
@@ -29,6 +30,7 @@ public final class LandClient implements ClientModInitializer {
             });
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            ClientOwnerColors.tick(client);
             XaeroRefresh.tick();
             boolean connected = client.player != null && client.getNetworkHandler() != null;
             if (initial.tick(connected, connected && ClientPlayNetworking.canSend(ClaimSync.CHANNEL))) {

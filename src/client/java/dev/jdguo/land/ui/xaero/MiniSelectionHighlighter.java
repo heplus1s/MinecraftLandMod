@@ -35,8 +35,8 @@ public final class MiniSelectionHighlighter extends ChunkHighlighter {
         if (!chunkIsHighlit(dimension, chunkX, chunkZ)) {
             return null;
         }
-        int fill = 0x664C8DFF;
-        int edge = 0xFF4C8DFF;
+        int fill = dev.jdguo.land.color.OwnerColorPalette.toXaero(0x664C8DFF);
+        int edge = dev.jdguo.land.color.OwnerColorPalette.toXaero(0xFF4C8DFF);
         String id = dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension);
         resultStore[0] = fill;
         resultStore[1] = LandPick.contains(id, chunkX, chunkZ - 1) ? fill : edge;

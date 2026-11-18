@@ -28,7 +28,7 @@ public class GuiMapMixin {
     private int landui$left;
     private int landui$top;
     private boolean landui$toolbarVisible;
-    private ButtonWidget landui$toggleButton, landui$clearButton;
+    private ButtonWidget landui$toggleButton, landui$clearButton, landui$displayButton;
     private dev.jdguo.land.ui.xaero.CurrentMapDimension.View landui$view;
     private boolean landui$checkView() {
         var now = dev.jdguo.land.ui.xaero.CurrentMapDimension.view(((GuiMap) (Object) this).getMapProcessor());
@@ -65,11 +65,9 @@ public class GuiMapMixin {
         if (panel == null) return; // K still opens the independent grid on exceptionally cramped screens.
         landui$left = panel.x(); landui$top = panel.y();
         landui$toolbarVisible = true;
-        screen.addButton(ButtonWidget.builder(Text.literal("命名"), button -> landui$run(() -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ParcelNameScreen(screen))))
-                .dimensions(landui$left, landui$top + 48, 48, 20).build());
-        screen.addButton(ButtonWidget.builder(Text.literal("权限"), button -> landui$run(() -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ClaimPermissionsScreen(screen))))
-                .dimensions(landui$left + 52, landui$top + 48, 48, 20).build());
-        if (LandQuotes.canManage()) screen.addButton(ButtonWidget.builder(Text.literal("管理"), button -> {
+        screen.addButton(ButtonWidget.builder(Text.literal("我的领地"), button -> landui$run(() -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.PersonalLandScreen(screen))))
+                .dimensions(landui$left, landui$top + 48, 100, 20).build());
+        if (LandQuotes.canManage()) screen.addButton(ButtonWidget.builder(Text.literal("管理员"), button -> {
             if (LandQuotes.canManage()) MinecraftClient.getInstance().setScreen(new LandManageScreen(screen));
         }).dimensions(landui$left + 104, landui$top + 48, 48, 20).build());
         landui$toggleButton = ButtonWidget.builder(Text.literal("选地关"), button -> LandPick.toggle())
@@ -87,6 +85,11 @@ public class GuiMapMixin {
             LandPick.clear(); LandQuotes.clearNotice();
         }).dimensions(landui$left + 104, landui$top + 24, 48, 20).build();
         screen.addButton(landui$clearButton);
+        landui$displayButton = ButtonWidget.builder(Text.literal("隐藏领地"), button -> dev.jdguo.land.client.ClaimDisplayPreferences.toggle())
+                .dimensions(landui$left, landui$top + 72, 74, 20).build();
+        screen.addButton(landui$displayButton);
+        screen.addButton(ButtonWidget.builder(Text.literal("我的配色"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.OwnerColorScreen(screen)))
+                .dimensions(landui$left + 78, landui$top + 72, 74, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("网格"), button -> MinecraftClient.getInstance().setScreen(new LandBoardScreen(screen)))
                 .dimensions(landui$left + 104, landui$top, 48, 20).build());
     }
@@ -95,7 +98,7 @@ public class GuiMapMixin {
     private void landui$pick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         if (!landui$toolbarVisible) return;
         GuiMap screen = (GuiMap) (Object) this;
-        var panel = new dev.jdguo.land.ui.MapSelectionPanel.Rect(landui$left, landui$top, 152, 108);
+        var panel = new dev.jdguo.land.ui.MapSelectionPanel.Rect(landui$left, landui$top, 152, 132);
         if (panel.contains(mouseX, mouseY)) {
             // Only actual enabled buttons receive left clicks. All other panel input is consumed.
             boolean enabledButton = false;
@@ -132,18 +135,21 @@ public class GuiMapMixin {
         int count = LandPick.selected().size();
         landui$toggleButton.setMessage(Text.literal(LandPick.active() ? "选地开" : "选地关"));
         landui$clearButton.active = count > 0;
+        landui$displayButton.setMessage(Text.literal(dev.jdguo.land.client.ClaimDisplayPreferences.visible() ? "隐藏领地" : "显示领地"));
         String state = (LandPick.active() ? "选地中" : "选地已关") + " · 已选 " + count + " 块";
         String position = dev.jdguo.land.ui.MapSelectionPanel.selectionLocation(LandPick.selected());
-        context.fill(landui$left, landui$top + 70, landui$left + 152, landui$top + 108, 0xDD18202B);
-        context.drawTextWithShadow(renderer, renderer.trimToWidth(state, 148), landui$left + 2, landui$top + 72,
+        context.fill(landui$left, landui$top + 94, landui$left + 152, landui$top + 132, 0xDD18202B);
+        context.drawTextWithShadow(renderer, renderer.trimToWidth(state, 148), landui$left + 2, landui$top + 96,
                 count > 0 ? 0xFFFF70 : 0xFFFFFF);
-        context.drawTextWithShadow(renderer, renderer.trimToWidth(position, 148), landui$left + 2, landui$top + 84, 0xBBDFFF);
-        context.drawTextWithShadow(renderer, renderer.trimToWidth(LandQuotes.summary(), 148), landui$left + 2, landui$top + 96, 0xFFE7BB);
-        if (mouseX >= landui$left && mouseX < landui$left + 152 && mouseY >= landui$top + 70 && mouseY < landui$top + 108) {
+        context.drawTextWithShadow(renderer, renderer.trimToWidth(position, 148), landui$left + 2, landui$top + 108, 0xBBDFFF);
+        context.drawTextWithShadow(renderer, renderer.trimToWidth(LandQuotes.summary(), 148), landui$left + 2, landui$top + 120, 0xFFE7BB);
+        if (mouseX >= landui$left && mouseX < landui$left + 152 && mouseY >= landui$top + 94 && mouseY < landui$top + 132) {
             var lines = new java.util.ArrayList<net.minecraft.text.OrderedText>();
             int maxWidth = Math.max(40, Math.min(240, ((GuiMap) (Object) this).width - 24));
             for (String line : java.util.List.of(state, position,
-                    "关闭选地不会清空选区；点击「清空选区」可全部取消。", LandQuotes.summary()))
+                    "关闭选地不会清空选区；点击「清空选区」可全部取消。",
+                    "领地填色按所有者分配；金边为出售中；蓝色为当前选区。",
+                    "显示开关只影响本机大/小地图领地层，不隐藏选区或改变交易。", LandQuotes.summary()))
                 lines.addAll(renderer.wrapLines(Text.literal(line), maxWidth));
             var fitted = dev.jdguo.land.ui.MapSelectionPanel.limitTooltipLines(lines, ((GuiMap) (Object) this).height,
                     renderer.fontHeight + 1, Text.literal("…内容较长，已省略").asOrderedText());

@@ -31,7 +31,7 @@ public final class LandQuotes {
                     if (operation.equals(dev.jdguo.land.network.CurrentWorldContext.QUOTE_OPERATION)) {
                         ClientWorldContext.acceptQuote(client, handler, value); return;
                     }
-                    if (operation.equals("manage")) { if (!canManage()) { clearManagement(); return; } management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); }
+                    if (operation.equals("manage")) { if (!canManage()) { clearManagement(); return; } management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); else if (client.currentScreen instanceof LandDynamicPriceScreen screen) screen.receive(value); }
                     else if (generation == LandPick.generation()) { quote = value; age = 0; }
                 } catch (RuntimeException ignored) { }
             });
