@@ -2,6 +2,7 @@ package dev.jdguo.land.ui;
 
 import dev.jdguo.land.client.ClientOwnerColors;
 import dev.jdguo.land.color.OwnerColorPalette;
+import dev.jdguo.land.network.OwnerColorSession;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -18,12 +19,12 @@ public final class OwnerColorScreen extends Screen {
     private boolean pending, resetting;
     private int expected, sentRevision;
     private long deadline;
-    private Object connection;
+    private OwnerColorSession context;
     public OwnerColorScreen(Screen parent){super(Text.literal("我的领地颜色"));this.parent=parent;}
     @Override protected void init(){
         String draft=value==null?null:value.getText();
         int w=Math.max(140,Math.min(280,width-24)),x=(width-w)/2;
-        if(connection==null)connection=client.getNetworkHandler();
+        if(context==null)context=new OwnerColorSession(client.getNetworkHandler(),client.world,ClientOwnerColors.sessionId());
         int rgb=client.player==null?0x35D06A:ClientOwnerColors.rgb(client.player.getUuid());
         value=new TextFieldWidget(textRenderer,x,44,w-28,20,Text.literal("六位颜色 HEX"));value.setMaxLength(7);
         value.setText(draft==null?OwnerColorPalette.hex(rgb):draft);addDrawableChild(value);
@@ -35,8 +36,10 @@ public final class OwnerColorScreen extends Screen {
         setInitialFocus(value);updateButtons();
     }
     private void updateButtons(){save.active=reset.active=!pending&&client.player!=null&&ClientOwnerColors.supported()&&ClientOwnerColors.ready();}
+    private boolean currentContext(){return client.player!=null && context!=null && context.matches(client.getNetworkHandler(),client.world,ClientOwnerColors.sessionId());}
     private void submit(boolean automatic){
-        if(client.player==null||pending)return;
+        if(!currentContext()){pending=false;client.setScreen(null);return;}
+        if(pending)return;
         try{expected=automatic?OwnerColorPalette.color(client.player.getUuid()):OwnerColorPalette.parseHex(value.getText());}
         catch(IllegalArgumentException invalid){status="请输入六位颜色，例如 #35D06A。";return;}
         sentRevision=ClientOwnerColors.ownerRevision(client.player.getUuid());
@@ -44,7 +47,7 @@ public final class OwnerColorScreen extends Screen {
         pending=true;resetting=automatic;deadline=System.nanoTime()+10_000_000_000L;status="正在等待服务器确认…";updateButtons();
     }
     @Override public void tick(){
-        if(client.getNetworkHandler()!=connection||client.player==null){close();return;}
+        if(!currentContext()){pending=false;client.setScreen(null);return;}
         value.tick();
         if(pending&&ClientOwnerColors.ownerRevision(client.player.getUuid())!=sentRevision&&(resetting||ClientOwnerColors.rgb(client.player.getUuid())==expected)){
             pending=false;status="已收到服务器颜色："+OwnerColorPalette.hex(ClientOwnerColors.rgb(client.player.getUuid()))+"。";

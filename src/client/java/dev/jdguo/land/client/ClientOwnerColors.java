@@ -22,6 +22,7 @@ public final class ClientOwnerColors {
     public static int ownerRevision(UUID owner) { return OWNER_REVISION.getOrDefault(owner,0); }
     public static int revision() { return revision; }
     public static boolean ready() { return PAGES.ready(); }
+    public static UUID sessionId() { return session; }
     public static boolean supported() { return ClientPlayNetworking.canSend(ColorSync.CHANNEL); }
     public static void reset() { PAGES.reset(); session=UUID.randomUUID(); pendingSince=0; OWNER_REVISION.clear(); ticks=0; revision++; XaeroRefresh.mark(); }
     public static void register() {
