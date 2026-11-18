@@ -56,7 +56,7 @@ public final class OwnerColorScreen extends Screen {
         updateButtons();
     }
     @Override public boolean shouldPause(){return false;}
-    @Override public void close(){client.setScreen(parent);}
+    @Override public void close(){pending=false;client.setScreen(currentContext()?parent:null);}
     @Override public void render(DrawContext ctx,int mouseX,int mouseY,float delta){
         renderBackground(ctx);int w=Math.max(140,Math.min(280,width-24)),x=(width-w)/2;
         ctx.drawTextWithShadow(textRenderer,title,x,10,0xFFFFFF);
