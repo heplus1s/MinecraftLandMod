@@ -15,6 +15,7 @@ public final class LandQuotes {
     private static String notice = "";
     private static int noticeGeneration = -1;
     public static void notice(String message) { notice = message; noticeGeneration = LandPick.generation(); }
+    public static void clearNotice() { notice = ""; noticeGeneration = -1; }
     private static JsonObject quote = new JsonObject();
     private static JsonObject management = new JsonObject();
     private LandQuotes() {}
@@ -43,8 +44,8 @@ public final class LandQuotes {
         var keys = LandPick.selected();
         if (keys.size() > 1024) { quote.addProperty("reason", "报价范围最多 1024 块，请缩小选区。"); return; }
         String dimension = keys.get(0).dimension();
-        if (client.getNetworkHandler() != null && client.getNetworkHandler().getWorldKeys().stream().noneMatch(key -> key.getValue().toString().equals(dimension))) {
-            quote.addProperty("reason", LandTradeFeedback.unknownDimension(dimension)); return;
+        if (!ClientLandDimensions.mayRequest(client, dimension)) {
+            quote.addProperty("reason", ClientLandDimensions.rejectionMessage(client, dimension)); return;
         }
         JsonArray coords = new JsonArray();
         for (var key : keys) {

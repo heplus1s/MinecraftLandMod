@@ -62,10 +62,9 @@ public final class LandTradeClient {
     }
 
     private static boolean validDimensions(MinecraftClient client, List<ClaimKey> keys) {
-        var network = client.getNetworkHandler();
         for (var key : keys) {
-            if (network == null || network.getWorldKeys().stream().noneMatch(world -> world.getValue().toString().equals(key.dimension()))) {
-                tell(client, LandTradeFeedback.unknownDimension(key.dimension())); return false;
+            if (!ClientLandDimensions.mayRequest(client, key.dimension())) {
+                tell(client, ClientLandDimensions.rejectionMessage(client, key.dimension())); return false;
             }
         }
         return true;
@@ -103,6 +102,15 @@ public final class LandTradeClient {
         if (!ClientPlayNetworking.canSend(LandTrade.CHANNEL)) {
             tell(MinecraftClient.getInstance(), "当前服务器不支持领地交易界面，请使用服务器提供的基础入口。");
             return;
+        }
+        var client = MinecraftClient.getInstance();
+        if (LandPick.requiresContext()) { ClientWorldContext.sendCurrentTrade(client, request); return; }
+        if (ClientWorldContext.supported()) {
+            String current = ClientWorldContext.currentDimension(client);
+            // Current-world selections (including proxy aliases) use the session-bound channel.
+            if (current == null || LandPick.selected().stream().allMatch(key -> key.dimension().equals(current))) {
+                ClientWorldContext.sendCurrentTrade(client, request); return;
+            }
         }
         PacketByteBuf buf = PacketByteBufs.create();
         request.write(buf);

@@ -5,7 +5,7 @@ class LandTradeFeedbackTest {
     @Test void invalidDimensionIsActionableWithoutSilentRemapping() {
         String message = LandTradeFeedback.reason("rejected:dimension", "example:archived");
         assertTrue(message.contains("example:archived"));
-        assertTrue(message.contains("K 网格"));
+        assertTrue(message.contains("已停止本次操作"));
         assertTrue(message.contains("不会自动"));
     }
     @Test void disabledSalesExplainsSaveStep() {

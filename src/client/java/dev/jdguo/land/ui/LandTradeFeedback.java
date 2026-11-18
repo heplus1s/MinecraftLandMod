@@ -10,6 +10,6 @@ public final class LandTradeFeedback {
         return reason;
     }
     public static String unknownDimension(String dimension) {
-        return "服务器不存在地图维度「" + dimension + "」。请切回当前服务器地图维度后重新选区，或使用 K 网格；不会自动改为其他维度。";
+        return "无法确认选区维度「" + dimension + "」。为避免交易错误地块，已停止本次操作；不会自动改为其他维度。";
     }
 }

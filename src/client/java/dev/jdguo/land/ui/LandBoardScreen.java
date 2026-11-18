@@ -17,6 +17,7 @@ public final class LandBoardScreen extends Screen {
     private int originX;
     private int originY;
     private boolean centered;
+    private Object gridWorld;
 
     private final Screen parent;
     private int centerX;
@@ -31,9 +32,12 @@ public final class LandBoardScreen extends Screen {
     @Override
     protected void init() {
         if (!centered && client != null && client.player != null) {
+            gridWorld = client.world;
             centerX = client.player.getBlockX() >> 4;
             centerZ = client.player.getBlockZ() >> 4;
-            dimension = client.player.getWorld().getRegistryKey().getValue().toString();
+            dimension = ClientWorldContext.currentDimension(client);
+            if (dimension != null) LandPick.retainDimension(dimension);
+            LandQuotes.clearNotice();
             centered = true;
         }
         int span = RADIUS * 2 + 1;
@@ -67,6 +71,15 @@ public final class LandBoardScreen extends Screen {
     }
 
     @Override
+    public void tick() {
+        if (client != null && gridWorld != client.world) { client.setScreen(null); return; }
+        if (client != null) {
+            String current = ClientWorldContext.currentDimension(client);
+            if (current != null && !current.equals(dimension)) { dimension = current; LandPick.retainDimension(dimension); }
+        }
+    }
+
+    @Override
     public void close() {
         if (client != null) {
             client.setScreen(parent);
@@ -91,7 +104,11 @@ public final class LandBoardScreen extends Screen {
         if (col < 0 || row < 0 || col >= span || row >= span) {
             return false;
         }
+        String current = ClientWorldContext.currentDimension(client);
+        if (current == null) { LandQuotes.notice("正在确认当前服务器世界，请稍后再选择地块。"); return true; }
+        if (!current.equals(dimension)) { dimension = current; LandPick.retainDimension(dimension); }
         LandPick.click(dimension, centerX + col - RADIUS, centerZ + row - RADIUS);
+        if (ClientWorldContext.supported()) LandPick.requireContext();
         return true;
     }
 
@@ -124,6 +141,7 @@ public final class LandBoardScreen extends Screen {
     }
 
     private int color(int chunkX, int chunkZ) {
+        if (dimension == null) return 0xFF2E2E2E;
         if (LandPick.contains(dimension, chunkX, chunkZ)) {
             return 0xFF3D7EFF;
         }

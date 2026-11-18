@@ -28,6 +28,31 @@ public class GuiMapMixin {
     private int landui$left;
     private int landui$top;
     private boolean landui$toolbarVisible;
+    private dev.jdguo.land.ui.xaero.CurrentMapDimension.View landui$view;
+    private boolean landui$checkView() {
+        var now = dev.jdguo.land.ui.xaero.CurrentMapDimension.view(((GuiMap) (Object) this).getMapProcessor());
+        if (now == null || !now.equals(landui$view)) {
+            LandPick.clear(); landui$view = now; return false;
+        }
+        return true;
+    }
+    private void landui$run(Runnable action) {
+        if (!landui$checkView()) return;
+        var processor = ((GuiMap) (Object) this).getMapProcessor();
+        var map = processor.getMapWorld();
+        var dimension = map == null ? null : map.getCurrentDimension();
+        String resolved = dimension == null ? null : dev.jdguo.land.ui.xaero.CurrentMapDimension.resolve(dimension.getDimId(), processor);
+        if (resolved == null || LandPick.selected().stream().anyMatch(key -> !key.dimension().equals(resolved))) {
+            LandPick.clear();
+            LandQuotes.notice("当前显示的地图不是已确认的当前世界自动地图，已清除旧选区，未提交交易。");
+            return;
+        }
+        action.run();
+    }
+    @Inject(method = "render", at = @At("HEAD"), remap = true)
+    private void landui$viewChanged(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        landui$checkView();
+    }
     @Inject(method = "init", at = @At("RETURN"), remap = true)
     private void landui$buttons(CallbackInfo ci) {
         GuiMap screen = (GuiMap) (Object) this;
@@ -38,9 +63,9 @@ public class GuiMapMixin {
         while (landui$top + 96 < screen.height - 32 && landui$blocked(screen, landui$left, landui$top)) landui$top += 24;
         if (landui$blocked(screen, landui$left, landui$top)) return; // K still opens the independent grid.
         landui$toolbarVisible = true;
-        screen.addButton(ButtonWidget.builder(Text.literal("命名"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ParcelNameScreen(screen)))
+        screen.addButton(ButtonWidget.builder(Text.literal("命名"), button -> landui$run(() -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ParcelNameScreen(screen))))
                 .dimensions(landui$left, landui$top + 48, 48, 20).build());
-        screen.addButton(ButtonWidget.builder(Text.literal("权限"), button -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ClaimPermissionsScreen(screen)))
+        screen.addButton(ButtonWidget.builder(Text.literal("权限"), button -> landui$run(() -> MinecraftClient.getInstance().setScreen(new dev.jdguo.land.ui.ClaimPermissionsScreen(screen))))
                 .dimensions(landui$left + 52, landui$top + 48, 48, 20).build());
         if (LandQuotes.canManage()) screen.addButton(ButtonWidget.builder(Text.literal("管理"), button -> {
             if (LandQuotes.canManage()) MinecraftClient.getInstance().setScreen(new LandManageScreen(screen));
@@ -51,9 +76,9 @@ public class GuiMapMixin {
             LandPick.toggleMode();
             button.setMessage(Text.literal(LandPick.mode() == LandPick.Mode.PARCEL ? "宗地" : "区块"));
         }).dimensions(landui$left + 52, landui$top, 48, 20).build());
-        screen.addButton(ButtonWidget.builder(Text.literal("购买"), button -> LandTradeClient.buy(MinecraftClient.getInstance()))
+        screen.addButton(ButtonWidget.builder(Text.literal("购买"), button -> landui$run(() -> LandTradeClient.buy(MinecraftClient.getInstance())))
                 .dimensions(landui$left, landui$top + 24, 48, 20).build());
-        screen.addButton(ButtonWidget.builder(Text.literal("出售"), button -> LandTradeClient.sell(MinecraftClient.getInstance()))
+        screen.addButton(ButtonWidget.builder(Text.literal("出售"), button -> landui$run(() -> LandTradeClient.sell(MinecraftClient.getInstance())))
                 .dimensions(landui$left + 52, landui$top + 24, 48, 20).build());
         screen.addButton(ButtonWidget.builder(Text.literal("清除"), button -> LandPick.clear())
                 .dimensions(landui$left + 104, landui$top + 24, 48, 20).build());
@@ -81,19 +106,22 @@ public class GuiMapMixin {
                 return;
             }
         }
+        landui$checkView();
         GuiMapAccess access = (GuiMapAccess) screen;
         RegistryKey<World> dimension = access.land$dimension();
         if (dimension == null) {
             return;
         }
-        var network = MinecraftClient.getInstance().getNetworkHandler();
-        if (network == null || !network.getWorldKeys().contains(dimension)) {
+        String resolved = dev.jdguo.land.ui.xaero.CurrentMapDimension.resolve(dimension, screen.getMapProcessor());
+        if (resolved == null) {
             LandPick.clear();
-            LandQuotes.notice(dev.jdguo.land.ui.LandTradeFeedback.unknownDimension(dimension.getValue().toString()));
+            LandQuotes.notice(dev.jdguo.land.ui.ClientLandDimensions.rejectionMessage(MinecraftClient.getInstance(), dimension.getValue().toString()));
             cir.setReturnValue(true);
             return;
         }
-        LandPick.click(dimension.getValue().toString(), access.land$blockX() >> 4, access.land$blockZ() >> 4);
+        LandPick.click(resolved, access.land$blockX() >> 4, access.land$blockZ() >> 4);
+        if (dev.jdguo.land.ui.ClientWorldContext.supported()
+                && resolved.equals(dev.jdguo.land.ui.ClientWorldContext.currentDimension(MinecraftClient.getInstance()))) LandPick.requireContext();
         cir.setReturnValue(true);
     }
 

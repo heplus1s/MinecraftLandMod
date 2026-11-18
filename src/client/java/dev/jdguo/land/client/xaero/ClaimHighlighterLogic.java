@@ -23,15 +23,15 @@ public final class ClaimHighlighterLogic {
     }
 
     public static boolean regionHas(RegistryKey<World> dimension, int regionX, int regionZ) {
-        return ClientClaims.regionHas(dimension.getValue().toString(), regionX, regionZ);
+        return ClientClaims.regionHas(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), regionX, regionZ);
     }
 
     public static boolean chunkClaimed(RegistryKey<World> dimension, int chunkX, int chunkZ) {
-        return ClientClaims.get(dimension.getValue().toString(), chunkX, chunkZ) != null;
+        return ClientClaims.get(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), chunkX, chunkZ) != null;
     }
 
     public static int regionHash(RegistryKey<World> dimension, int regionX, int regionZ) {
-        return ClientClaims.regionHash(dimension.getValue().toString(), regionX, regionZ);
+        return ClientClaims.regionHash(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), regionX, regionZ);
     }
 
     /**
@@ -39,7 +39,7 @@ public final class ClaimHighlighterLogic {
      * center, -Z, +X, +Z, -X. Returns false when the chunk is not claimed.
      */
     public static boolean fill(int[] store, RegistryKey<World> dimension, int chunkX, int chunkZ) {
-        String dim = dimension.getValue().toString();
+        String dim = dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension);
         ClientClaims.Entry entry = ClientClaims.get(dim, chunkX, chunkZ);
         if (entry == null) {
             return false;
@@ -57,12 +57,12 @@ public final class ClaimHighlighterLogic {
     }
 
     public static Text tooltip(RegistryKey<World> dimension, int chunkX, int chunkZ) {
-        ClientClaims.Entry entry = ClientClaims.get(dimension.getValue().toString(), chunkX, chunkZ);
+        ClientClaims.Entry entry = ClientClaims.get(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), chunkX, chunkZ);
         if (entry == null) {
             return null;
         }
         String owner = entry.ownerName().isBlank() ? "未知" : entry.ownerName();
-        int chunks = ClientClaims.parcelChunks(dimension.getValue().toString(), entry.parcelId());
+        int chunks = ClientClaims.parcelChunks(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), entry.parcelId());
         String size = Math.max(chunks, 1) + " 块";
         if (entry.name().isBlank()) {
             String shortId = entry.parcelId().toString().replace("-", "").substring(0, 8);

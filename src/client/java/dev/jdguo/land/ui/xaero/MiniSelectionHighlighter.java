@@ -14,7 +14,7 @@ public final class MiniSelectionHighlighter extends ChunkHighlighter {
 
     @Override
     public boolean regionHasHighlights(RegistryKey<World> dimension, int regionX, int regionZ) {
-        String id = dimension.getValue().toString();
+        String id = dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension);
         for (int x = 0; x < 32; x++) {
             for (int z = 0; z < 32; z++) {
                 if (LandPick.contains(id, (regionX << 5) + x, (regionZ << 5) + z)) {
@@ -27,7 +27,7 @@ public final class MiniSelectionHighlighter extends ChunkHighlighter {
 
     @Override
     public boolean chunkIsHighlit(RegistryKey<World> dimension, int chunkX, int chunkZ) {
-        return LandPick.contains(dimension.getValue().toString(), chunkX, chunkZ);
+        return LandPick.contains(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), chunkX, chunkZ);
     }
 
     @Override
@@ -37,7 +37,7 @@ public final class MiniSelectionHighlighter extends ChunkHighlighter {
         }
         int fill = 0x664C8DFF;
         int edge = 0xFF4C8DFF;
-        String id = dimension.getValue().toString();
+        String id = dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension);
         resultStore[0] = fill;
         resultStore[1] = LandPick.contains(id, chunkX, chunkZ - 1) ? fill : edge;
         resultStore[2] = LandPick.contains(id, chunkX + 1, chunkZ) ? fill : edge;
@@ -48,7 +48,7 @@ public final class MiniSelectionHighlighter extends ChunkHighlighter {
 
     @Override
     public void addChunkHighlightTooltips(InfoDisplayCompiler compiler, RegistryKey<World> dimension, int chunkX, int chunkZ, int width) {
-        if (LandPick.contains(dimension.getValue().toString(), chunkX, chunkZ)) {
+        if (LandPick.contains(dev.jdguo.land.ui.ClientDisplayDimensions.resolve(dimension), chunkX, chunkZ)) {
             compiler.addLine(Text.literal("已选"));
         }
     }

@@ -19,6 +19,9 @@ public final class LandPick {
     private static final List<ClaimKey> SELECTED = new ArrayList<>();
     private static Mode mode = Mode.CHUNK;
     private static boolean active;
+    private static boolean contextRequired;
+    public static boolean requiresContext() { return contextRequired; }
+    public static void requireContext() { contextRequired = true; }
     private static int generation = 1;
 
     private LandPick() {
@@ -55,6 +58,7 @@ public final class LandPick {
     }
 
     public static void clear() {
+        contextRequired = false;
         if (SELECTED.isEmpty()) {
             return;
         }
@@ -62,7 +66,16 @@ public final class LandPick {
         changed();
     }
 
+    /** Never carry a hidden selection from a different map/world into a transaction. */
+    public static void retainDimension(String dimension) {
+        if (SELECTED.removeIf(key -> !key.dimension().equals(dimension))) {
+            if (SELECTED.isEmpty()) contextRequired = false;
+            changed();
+        }
+    }
+
     public static void click(String dimension, int chunkX, int chunkZ) {
+        retainDimension(dimension);
         if (mode == Mode.PARCEL) {
             ClientClaims.Entry entry = ClientClaims.get(dimension, chunkX, chunkZ);
             if (entry == null) {
