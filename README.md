@@ -1,24 +1,24 @@
 # Minecraft Land · 领地
 
-适用于 **Minecraft Java 1.20.1 / Fabric** 的区块领地模组。当前文档对应 **v1.0.8**。
+适用于 **Minecraft Java 1.20.1 / Fabric** 的区块领地模组。当前文档对应 **v1.0.14 发布候选**。
 
 Land 负责“谁拥有哪块地、谁可以操作、如何过户”；市场负责挂牌、报价与交易流程；银行负责余额和结算。领地保护由服务器执行，增强地图界面可选，**原版客户端无需安装 Land 也可加入装有本模组的服务器**。
 
 - [下载 Release](https://github.com/heplus1s/MinecraftLandMod/releases)
 - 联动项目：[银行](https://github.com/heplus1s/MinecraftBankMod) · [市场](https://github.com/heplus1s/MinecraftMarketMod) · [商店](https://github.com/heplus1s/MinecraftShopMod)
-- [本版更新说明](RELEASE_NOTES_1.0.8.md)
+- [本版更新说明](RELEASE_NOTES_1.0.14.md)
 
 ## 1. 安装与更新
 
 | 环境 | 需要安装什么 |
 | --- | --- |
-| 专用服务器 | Fabric Loader、Fabric API、`landmod-1.0.8.jar` |
+| 专用服务器 | Fabric Loader、Fabric API、`landmod-1.0.14.jar` |
 | 原版客户端进服 | 无需 Land、地图模组或资源包；使用聊天命令及服务端提供的原版交易菜单 |
 | 增强客户端 | Fabric Loader、Fabric API、同一份 Land 主模组 JAR；可选 Xaero 地图 |
 | 单人游戏 | 在 Fabric 客户端安装以上依赖，集成服务端负责保护和数据 |
 | 付费买卖土地 | 服务端另装兼容的 Market 和 Bank；推荐使用同批最新版本 |
 
-运行要求：Java 17 或更高，Fabric Loader 至少 0.15.0，Minecraft `~1.20.1`。工程构建使用 Loader 0.16.9、Fabric API 0.92.2+1.20.1。不要把其他 Minecraft 版本的 JAR 混入。
+运行要求：Java 17 或更高，Fabric Loader 至少 0.15.0，Minecraft `~1.20.1`。工程构建使用 Loader 0.16.9、Fabric API 0.92.2+1.20.1。当前构建验证仅覆盖 Minecraft 1.20.1；保留既有元数据兼容范围，不代表其中每个游戏或 Loader 版本均已测试。不要把其他 Minecraft 版本的 JAR 混入。
 
 客户端 UI 已合并在主模组内。**删除旧的 `landmod-ui` 独立包**，并确保每个模组只保留一个版本；旧 UI 与主包同时安装会被 Loader 拒绝。更新前停服备份整个世界、配置及联动模组的账本，之后再替换 JAR。只有客户端更新不能修复旧服务器逻辑。
 
@@ -156,7 +156,7 @@ Land 本身**没有实体柜台，也没有 `/land outlet` 旋转命令**。需�
 3. **Bank**：真实余额扣付、跨币报价、系统账户结算和相关资金记录。Land 不自建货币账本，不在本地 UI 造币。
 4. **Shop**：不负责领地权属；其系统账户与地产系统账户独立，管理员拨款在银行侧处理。
 
-当前配套版本为 Bank 1.0.12、Market 1.0.10、Shop 1.0.8、Land 1.0.8。相应个人币可保留小数；无法在支持精度下精确完成的付款会由银行拒绝，不能为完成交易凭空补币。实际可付款币种、余额和报价以服务端返回为准。
+本批配套发布候选为 Bank 1.0.17、Market 1.0.12、Land 1.0.14；这些版本在正式发布前不应当作已可下载的 Release。Shop 使用与现有服务器匹配的版本，不因本文自行升级。相应个人币可保留小数；无法在支持精度下精确完成的付款会由银行拒绝，不能为完成交易凭空补币。实际可付款币种、余额和报价以服务端返回为准。
 
 Land 对初售发放、市场过户保存交易引用和指纹，用于重复请求判定及耐久保存核验。遇到 pending、锁定或保存失败，不要手工删除引用/锁定记录或反复补发土地，应先检查市场和银行交易状态、日志及备份。
 
@@ -215,11 +215,11 @@ Land 对初售发放、市场过户保存交易引用和指纹，用于重复请
 ./gradlew test build
 ```
 
-Windows 使用 `gradlew.bat test build`。项目以 Java 17 为运行/编译目标；Gradle 运行 JDK 要与当前 Loom/Gradle 版本兼容。正式分发重映射后的 `build/libs/landmod-1.0.8.jar`，不是 `-dev` 或 `-sources` 包。构建需要联网获取 Fabric、Minecraft 和可选地图的编译依赖。
+Windows 使用 `gradlew.bat test build`。项目以 Java 17 为运行/编译目标；Gradle 运行 JDK 要与当前 Loom/Gradle 版本兼容。正式分发重映射后的 `build/libs/landmod-1.0.14.jar`，不是 `-dev` 或 `-sources` 包。构建需要联网获取 Fabric、Minecraft 和可选地图的编译依赖。
 
 MIT License，见 [LICENSE](LICENSE)。
 
-### 动态地价设置与推荐售价（下一版本联动）
+### 动态地价设置与推荐售价（本批候选联动）
 
 管理员「领地管理」新增独立「动态地价设置」页面：开关、同维度区块半径、独立业主上涨基点、挂牌/成交下行基点、成交衰减小时。默认关闭；基准价与计价币种仍在原管理页设置。服务端校验 OP2 权限；普通玩家不能提交管理修改。
 
