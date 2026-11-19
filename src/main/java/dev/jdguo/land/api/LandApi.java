@@ -50,7 +50,17 @@ public final class LandApi {
     /** Distinct owners within an inclusive square chunk radius, per queried chunk.
      * No world loading and no block scanning. Caller must be on the server thread. */
     public static int[] nearbyOwnerCounts(MinecraftServer server, String dimension, int[] coordinates, int radius) {
-        if (server == null || !server.isOnThread() || radius < 0 || radius > 128
+        return nearbyIndex(server, dimension, coordinates, radius).count(coordinates);
+    }
+
+    /** Sum distance weights for all occupied chunks, without using owners' identities.
+     * Weights are integer units: divide by radius + 1 for equivalent adjacent-to-center occupancy. */
+    public static long[] nearbyOwnedChunkWeights(MinecraftServer server, String dimension, int[] coordinates, int radius) {
+        return nearbyIndex(server, dimension, coordinates, radius).weightedChunks(coordinates);
+    }
+
+    private static dev.jdguo.land.claim.NearbyOwners.Index nearbyIndex(MinecraftServer server, String dimension, int[] coordinates, int radius) {
+        if (server == null || !server.isOnThread() || dimension == null || radius < 0 || radius > 128
                 || coordinates == null || coordinates.length == 0 || coordinates.length > 2048 || coordinates.length % 2 != 0)
             throw new IllegalArgumentException("pricing selection");
         ClaimMap map = claims(server);
@@ -61,7 +71,7 @@ public final class LandApi {
             cached = new OwnerIndex(map.revision(), dimension, radius, new dev.jdguo.land.claim.NearbyOwners.Index(candidates, radius));
             OWNER_INDEXES.put(map, cached);
         }
-        return cached.index().count(coordinates);
+        return cached.index();
     }
 
     /** Read-only initial-sale validation. Coordinates are chunk x,z pairs. */

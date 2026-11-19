@@ -24,4 +24,20 @@ class NearbyOwnersTest {
             assertEquals(expected.size(),NearbyOwners.count(rows,new int[]{x,z},radius)[0]);
         }
     }
+    @Test void weightedOccupancyDoesNotDependOnOwners() {
+        UUID a=UUID.randomUUID(), b=UUID.randomUUID();
+        var single=new NearbyOwners.Index(List.of(new NearbyOwners.Owned(1,1,a),
+                new NearbyOwners.Owned(4,0,a), new NearbyOwners.Owned(8,8,a), new NearbyOwners.Owned(9,0,a)),8);
+        var multiple=new NearbyOwners.Index(List.of(new NearbyOwners.Owned(1,1,a),
+                new NearbyOwners.Owned(4,0,b), new NearbyOwners.Owned(8,8,b), new NearbyOwners.Owned(9,0,a)),8);
+        var q=new int[]{0,0,100,100};
+        assertArrayEquals(new long[]{14,0},single.weightedChunks(q));
+        assertArrayEquals(single.weightedChunks(q),multiple.weightedChunks(q));
+        assertArrayEquals(new int[]{1,0},single.count(q));
+        assertArrayEquals(new int[]{2,0},multiple.count(q));
+    }
+    @Test void movingClaimsCloserRaisesWeightAndOutsideDoesNotCount() {
+        var index=new NearbyOwners.Index(List.of(new NearbyOwners.Owned(-8,-8,UUID.randomUUID())),8);
+        assertArrayEquals(new long[]{0,1,2,8,9},index.weightedChunks(new int[]{1,0, 0,0, -1,-1, -7,-7, -8,-8}));
+    }
 }
