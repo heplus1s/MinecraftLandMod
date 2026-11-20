@@ -12,6 +12,7 @@ import java.util.UUID;
 public final class LandQuoteChannel {
     public static final Identifier REQUEST = new Identifier("landmod", "quote_request");
     public static final Identifier RESPONSE = new Identifier("landmod", "quote_response");
+    public static final String DIMENSION_MANAGE = "dimension_manage";
     private LandQuoteChannel() {}
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(REQUEST, (server, player, handler, buf, response) -> {
@@ -39,7 +40,7 @@ public final class LandQuoteChannel {
                         for (int i = 0; i < coordinates.length; i++) coordinates[i] = array.get(i).getAsInt();
                         result = (String) api.getMethod("quote", MinecraftServer.class, UUID.class, String.class, int[].class)
                                 .invoke(null, server, player.getUuid(), input.get("dimension").getAsString(), coordinates);
-                    } else if (operation.equals("manage")) {
+                    } else if (operation.equals("manage") || operation.equals(DIMENSION_MANAGE)) {
                         if (!dev.jdguo.land.network.RequestAccess.mayManage(true, player.hasPermissionLevel(2))) {
                             result = error("只有管理员可以修改默认地价。");
                         } else {

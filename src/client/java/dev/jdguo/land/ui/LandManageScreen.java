@@ -58,15 +58,18 @@ public final class LandManageScreen extends Screen {
         }).dimensions(x, 146, w, 20).build());
         readButton = addDrawableChild(ButtonWidget.builder(Text.literal("读取当前设置"), button -> request()).dimensions(x, 174, w / 2 - 2, 20).build());
         backButton = addDrawableChild(ButtonWidget.builder(Text.literal("返回"), button -> close()).dimensions(x + w / 2 + 2, 174, w / 2 - 2, 20).build());
+        int third = (w - 8) / 3;
         addDrawableChild(ButtonWidget.builder(Text.literal("填入建议地价"), button -> {
             var data = LandQuotes.management();
             price.setText(LandQuotes.text(data, "recommendedPrice", "32"));
             currencyId = LandQuotes.text(data, "recommendedCurrency", "note");
             currency.setText(CurrencyLabels.label(currencyId, data));
             localMessage = "仅填入建议，点击保存后才生效；不会修改二手挂牌";
-        }).dimensions(x, 202, w / 2 - 2, 20).build());
+        }).dimensions(x, 202, third, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("动态地价设置"), button ->
-                client.setScreen(new LandDynamicPriceScreen(this))).dimensions(x + w / 2 + 2, 202, w / 2 - 2, 20).build());
+                client.setScreen(new LandDynamicPriceScreen(this))).dimensions(x + third + 4, 202, third, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("维度地价设置"), button ->
+                client.setScreen(new LandDimensionPriceScreen(this))).dimensions(x + 2 * (third + 4), 202, w - 2 * (third + 4), 20).build());
         request();
     }
     private void request() {
@@ -77,6 +80,7 @@ public final class LandManageScreen extends Screen {
     }
     public void receive(JsonObject data) {
         if (!LandQuotes.canManage()) { LandQuotes.clearManagement(); close(); return; }
+        if (price == null || currency == null || enabledButton == null) return;
         boolean valid = data.has("ok") && data.get("ok").getAsBoolean() && data.has("price") && data.has("currency");
         if (reading && valid) {
             price.setText(LandQuotes.text(data, "price", ""));

@@ -12,6 +12,7 @@ import net.minecraft.client.MinecraftClient;
 public final class LandQuotes {
     private static int selectedGeneration = -1;
     private static int age;
+    private static int dimensionManagementSequence;
     private static String notice = "";
     private static int noticeGeneration = -1;
     public static void notice(String message) { notice = message; noticeGeneration = LandPick.generation(); }
@@ -30,6 +31,11 @@ public final class LandQuotes {
                     JsonObject value = JsonParser.parseString(json).getAsJsonObject();
                     if (operation.equals(dev.jdguo.land.network.CurrentWorldContext.QUOTE_OPERATION)) {
                         ClientWorldContext.acceptQuote(client, handler, value); return;
+                    }
+                    if (LandQuoteChannel.DIMENSION_MANAGE.equals(operation)) {
+                        if (!canManage()) { clearManagement(); return; }
+                        if (client.currentScreen instanceof LandDimensionPriceScreen screen) screen.receive(generation, value);
+                        return;
                     }
                     if (operation.equals("manage")) { if (!canManage()) { clearManagement(); return; } management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); else if (client.currentScreen instanceof LandDynamicPriceScreen screen) screen.receive(value); }
                     else if (generation == LandPick.generation()) { quote = value; age = 0; }
@@ -63,10 +69,14 @@ public final class LandQuotes {
         return client.getNetworkHandler() != null && client.player != null && client.player.hasPermissionLevel(2);
     }
     public static void clearManagement() { management = new JsonObject(); }
+    static int nextDimensionManagementSequence() { return ++dimensionManagementSequence; }
     public static boolean send(String operation, JsonObject data) {
-        if (MinecraftClient.getInstance().getNetworkHandler() == null || ("manage".equals(operation) && !canManage())) return false;
+        return send(operation, data, LandPick.generation());
+    }
+    static boolean send(String operation, JsonObject data, int generation) {
+        if (MinecraftClient.getInstance().getNetworkHandler() == null || (("manage".equals(operation) || LandQuoteChannel.DIMENSION_MANAGE.equals(operation)) && !canManage())) return false;
         if (!ClientPlayNetworking.canSend(LandQuoteChannel.REQUEST)) return false;
-        var packet = PacketByteBufs.create(); packet.writeVarInt(LandPick.generation());
+        var packet = PacketByteBufs.create(); packet.writeVarInt(generation);
         packet.writeString(operation); packet.writeString(data.toString(), 32767);
         ClientPlayNetworking.send(LandQuoteChannel.REQUEST, packet); return true;
     }
