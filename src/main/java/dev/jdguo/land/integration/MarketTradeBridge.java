@@ -31,6 +31,16 @@ public final class MarketTradeBridge {
         }
     }
 
+    public static boolean openGovernmentListing(ServerPlayerEntity player, UUID parcelId) {
+        try {
+            Class.forName("dev.jdguo.market.api.GovernmentSale")
+                    .getMethod("open", ServerPlayerEntity.class, UUID.class).invoke(null, player, parcelId);
+            return true;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException failure) {
+            return false;
+        }
+    }
+
     public static void open(ServerPlayerEntity player, UUID parcel, String action, List<ClaimKey> keys) {
         int[] coordinates = new int[keys.size() * 2];
         for (int i = 0; i < keys.size(); i++) {

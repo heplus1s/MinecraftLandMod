@@ -123,6 +123,29 @@ public final class ClaimSavedData extends PersistentState {
         return result;
     }
 
+    String disposeGovernment(ServerPlayerEntity operator, GovernmentLand.Disposal action, UUID token) {
+        if (!server.isOnThread() || !operator.hasPermissionLevel(2)
+                || server.getPlayerManager().getPlayer(operator.getUuid()) != operator)
+            return "rejected:permission";
+        String reference = "government:" + token;
+        String fingerprint = operator.getUuid() + "|" + action.kind() + "|" + action.target()
+                + "|" + action.source() + "|" + action.keys().size();
+        if (initialGrants.contains(reference)) {
+            if (!initialGrants.getString(reference).equals(fingerprint)) return "conflict";
+            return flushGrant(reference) ? "applied" : "pending";
+        }
+        var result = action.checkOrApply(claims, true);
+        if (!result.succeeded()) return "rejected:" + result.denial();
+        claims.sales();
+        initialGrants.putString(reference, fingerprint);
+        unflushedGrants.add(reference);
+        markDirty();
+        boolean durable = flushGrant(reference);
+        ClaimSync.broadcast(server);
+        LandTrade.broadcast(server);
+        return durable ? "applied" : "pending";
+    }
+
     /** Atomically replace the same PersistentState file, acknowledge only after read-back. */
     private boolean flushGrant(String reference) {
         java.nio.file.Path file = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).resolve("data").resolve(ID + ".dat");

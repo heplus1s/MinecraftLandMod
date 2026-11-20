@@ -77,6 +77,15 @@ public final class LandApi {
 
     public static UUID governmentOwnerId() { return GovernmentOwner.ID; }
 
+    /** Admin resale only. The Market must recheck this when posting a listing. */
+    public static @Nullable ParcelInfo governmentSaleScope(MinecraftServer server, UUID operator, UUID parcelId) {
+        if (server == null || !server.isOnThread() || operator == null || parcelId == null) return null;
+        var player = server.getPlayerManager().getPlayer(operator);
+        if (player == null || !player.hasPermissionLevel(2)) return null;
+        var parcel = claims(server).info(parcelId);
+        return parcel != null && GovernmentOwner.is(parcel.owner()) ? parcel : null;
+    }
+
     /** Validate canonical chunk geometry and the current world's border without granting ownership. */
     public static List<ClaimKey> checkedInitialSelection(MinecraftServer server, String dimension, int[] coordinates) {
         if (server == null || !server.isOnThread()) throw new IllegalArgumentException("thread");

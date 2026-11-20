@@ -29,4 +29,50 @@ class GovernmentClaimsTest {
         assertTrue(result.claim().members().isEmpty());
         assertFalse(map.allowsChange(WORLD, 0, 0, UUID.randomUUID(), false));
     }
+
+    @Test void releasePrechecksAllClaimsAndNeverPartiallyMutates() {
+        var map = new ClaimMap();
+        var a = new ClaimKey(WORLD, 0, 0); var b = new ClaimKey(WORLD, 1, 0);
+        UUID owner = GovernmentOwner.ID;
+        assertTrue(map.initialGrant(List.of(a,b), owner, GovernmentOwner.NAME, 0).succeeded());
+        assertTrue(map.releaseGovernment(List.of(a,b), false).succeeded());
+        assertEquals(2, map.size());
+        var guard = new dev.jdguo.land.integration.ClaimGate() {
+            @Override public boolean allowAbandon(UUID actor, Claim claim) { return !claim.key().equals(b); }
+        };
+        dev.jdguo.land.integration.ClaimGates.register(guard);
+        try {
+            assertFalse(map.releaseGovernment(List.of(a,b), true).succeeded());
+            assertEquals(2, map.size());
+            assertTrue(map.releaseGovernment(List.of(a),true).succeeded());
+            assertEquals(1, map.size());
+        } finally {
+            dev.jdguo.land.integration.ClaimGates.resetForTests();
+        }
+    }
+
+    @Test void splitAndMergePreviewNeverMutateAndUseExistingConditions() {
+        var map = new ClaimMap();
+        var a = new ClaimKey(WORLD, 0, 0); var b = new ClaimKey(WORLD, 1, 0);
+        UUID owner = GovernmentOwner.ID;
+        var first = map.initialGrant(List.of(a,b), owner, GovernmentOwner.NAME, 0).claim().parcelId();
+        assertEquals(ClaimMap.Denial.ENTIRE_PARCEL, map.split(owner, List.of(a,b), "", false).denial());
+        assertTrue(map.split(owner, List.of(b), "新宗地", false).succeeded());
+        assertEquals(first, map.get(WORLD,1,0).parcelId());
+        var second = map.split(owner, List.of(b), "新宗地", true).claim().parcelId();
+        assertTrue(map.merge(owner, first, second, false).succeeded());
+        assertEquals(second, map.get(WORLD,1,0).parcelId());
+        assertTrue(map.merge(owner, first, second, true).succeeded());
+        assertEquals(first, map.get(WORLD,1,0).parcelId());
+        assertNull(map.info(second));
+    }
+
+    @Test void releaseCannotTouchPrivateOrMixedServerParcels() {
+        var map = new ClaimMap();
+        var a = new ClaimKey(WORLD, 0, 0); var b = new ClaimKey(WORLD, 1, 0);
+        assertTrue(map.initialGrant(List.of(a), GovernmentOwner.ID, GovernmentOwner.NAME, 0).succeeded());
+        assertTrue(map.initialGrant(List.of(b), UUID.randomUUID(), "Player", 32).succeeded());
+        assertEquals(ClaimMap.Denial.NOT_OWNER, map.releaseGovernment(List.of(a,b), true).denial());
+        assertEquals(2, map.size());
+    }
 }

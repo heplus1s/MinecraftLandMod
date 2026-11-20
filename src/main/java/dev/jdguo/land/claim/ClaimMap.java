@@ -389,6 +389,26 @@ public final class ClaimMap {
         return ok(claim);
     }
 
+    /** Check the whole release before changing a single protection record. */
+    public Result releaseGovernment(List<ClaimKey> keys, boolean apply) {
+        if (keys == null || keys.isEmpty() || new HashSet<>(keys).size() != keys.size())
+            return fail(Denial.NOT_CLAIMED, null, "");
+        var selected = resolve(keys);
+        if (selected == null) return fail(Denial.NOT_CLAIMED, null, "");
+        Claim first = selected.get(0);
+        for (Claim claim : selected) {
+            if (!GovernmentOwner.is(claim.owner())) return fail(Denial.NOT_OWNER, claim, "");
+            if (!first.parcelId().equals(claim.parcelId())) return fail(Denial.MIXED_PARCEL, claim, "");
+            if (!ClaimGates.allowAbandon(GovernmentOwner.ID, claim)) return fail(Denial.GATE, claim, "");
+        }
+        if (apply) {
+            for (Claim claim : selected) claims.remove(claim.key());
+            if (inParcel(first.parcelId()).isEmpty()) parcels.remove(first.parcelId());
+            revision++;
+        }
+        return ok(first);
+    }
+
     public Result trust(String dimension, int chunkX, int chunkZ, UUID actor, UUID memberId, String memberName) {
         Claim claim = get(dimension, chunkX, chunkZ);
         if (claim == null) {
@@ -622,6 +642,10 @@ public final class ClaimMap {
     }
 
     public Result merge(UUID actor, UUID targetId, UUID sourceId) {
+        return merge(actor, targetId, sourceId, true);
+    }
+
+    public Result merge(UUID actor, UUID targetId, UUID sourceId, boolean apply) {
         if (targetId == null || sourceId == null) {
             return fail(Denial.PARCEL_NOT_FOUND, null, "");
         }
@@ -648,6 +672,7 @@ public final class ClaimMap {
         if (!ClaimGates.allowMerge(actor, target, source)) {
             return fail(Denial.GATE, null, "");
         }
+        if (!apply) return ok(sourceClaims.get(0));
         absorb(parcels.get(targetId), parcels.get(sourceId));
         String name = parcels.get(targetId).name();
         for (Claim claim : sourceClaims) {
@@ -666,6 +691,10 @@ public final class ClaimMap {
      * {@link #transferChunks}; selling every chunk is {@link #transferParcel}.
      */
     public Result split(UUID actor, List<ClaimKey> keys, String rawName) {
+        return split(actor, keys, rawName, true);
+    }
+
+    public Result split(UUID actor, List<ClaimKey> keys, String rawName, boolean apply) {
         String name = ParcelNames.clean(rawName);
         if (name == null) {
             return fail(Denial.NAME_INVALID, null, "");
@@ -690,6 +719,7 @@ public final class ClaimMap {
         if (!ClaimGates.allowSplit(actor, source, List.copyOf(moving))) {
             return fail(Denial.GATE, moving.get(0), "");
         }
+        if (!apply) return ok(moving.get(0));
         Parcel created = createParcel(name);
         for (Claim claim : moving) {
             claim.setParcel(created.id());

@@ -104,6 +104,7 @@ public final class LandManageScreen extends Screen {
     @Override public void tick() {
         if (!LandQuotes.canManage()) { LandQuotes.clearManagement(); close(); }
     }
+    Screen personalScreen() { return parent; }
     @Override public void close() { client.setScreen(parent); }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context);
