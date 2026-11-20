@@ -117,7 +117,7 @@ public final class ClaimSavedData extends PersistentState {
     ClaimMap.Result renameGovernment(ServerPlayerEntity player, UUID parcelId, String name) {
         var current = claims.info(parcelId);
         if (!player.hasPermissionLevel(2) || current == null || !GovernmentOwner.is(current.owner()))
-            return ClaimMap.fail(ClaimMap.Denial.NOT_OWNER, null, "");
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_OWNER, null, "");
         var result = claims.renameParcel(GovernmentOwner.ID, parcelId, name);
         finish(result.succeeded());
         return result;
@@ -257,7 +257,7 @@ public final class ClaimSavedData extends PersistentState {
     public ClaimMap.Result setMember(ServerPlayerEntity player, ClaimKey key, UUID memberId, String memberName, boolean add) {
         var claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
         if (claim == null || !GovernmentOwner.mayManage(player.getUuid(), claim.owner(), player.hasPermissionLevel(2)))
-            return ClaimMap.fail(ClaimMap.Denial.NOT_OWNER, claim, "");
+            return new ClaimMap.Result(ClaimMap.Denial.NOT_OWNER, claim, "");
         UUID actor = claim.owner();
         ClaimMap.Result result = add
                 ? claims.trust(key.dimension(), key.chunkX(), key.chunkZ(), actor, memberId, memberName)
