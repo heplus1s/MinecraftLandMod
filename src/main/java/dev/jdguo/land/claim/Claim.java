@@ -37,7 +37,7 @@ public final class Claim {
         this.chunkZ = chunkZ;
         this.parcelId = Objects.requireNonNull(parcelId, "parcel");
         this.owner = Objects.requireNonNull(owner, "owner");
-        this.ownerName = ownerName == null ? "" : ownerName;
+        this.ownerName = GovernmentOwner.is(owner) ? GovernmentOwner.NAME : ownerName == null ? "" : ownerName;
         this.name = name == null ? "" : name;
         this.members = members == null ? new LinkedHashMap<>() : members;
         this.flags = flags == null ? new NbtCompound() : flags;
@@ -69,7 +69,7 @@ public final class Claim {
     }
 
     public String ownerName() {
-        return ownerName;
+        return GovernmentOwner.is(owner) ? GovernmentOwner.NAME : ownerName;
     }
 
     public String name() {
@@ -102,11 +102,11 @@ public final class Claim {
 
     void setOwner(UUID owner, String ownerName) {
         this.owner = owner;
-        this.ownerName = ownerName == null ? "" : ownerName;
+        this.ownerName = GovernmentOwner.is(owner) ? GovernmentOwner.NAME : ownerName == null ? "" : ownerName;
     }
 
     void setOwnerName(String ownerName) {
-        this.ownerName = ownerName == null ? "" : ownerName;
+        this.ownerName = GovernmentOwner.is(owner) ? GovernmentOwner.NAME : ownerName == null ? "" : ownerName;
     }
 
     void setName(String name) {

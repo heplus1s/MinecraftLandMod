@@ -20,13 +20,19 @@ public final class LandBoardScreen extends Screen {
     private Object gridWorld;
 
     private final Screen parent;
+    private final dev.jdguo.land.claim.ClaimKey locate;
     private int centerX;
     private int centerZ;
     private String dimension = "minecraft:overworld";
 
     public LandBoardScreen(Screen parent) {
+        this(parent, null);
+    }
+
+    LandBoardScreen(Screen parent, dev.jdguo.land.claim.ClaimKey locate) {
         super(Text.literal("领地"));
         this.parent = parent;
+        this.locate = locate;
     }
 
     @Override
@@ -37,6 +43,10 @@ public final class LandBoardScreen extends Screen {
             centerZ = client.player.getBlockZ() >> 4;
             dimension = ClientWorldContext.currentDimension(client);
             if (dimension != null) LandPick.retainDimension(dimension);
+            if (locate != null && locate.dimension().equals(dimension)) {
+                centerX = locate.chunkX();
+                centerZ = locate.chunkZ();
+            }
             LandQuotes.clearNotice();
             centered = true;
         }

@@ -2,6 +2,7 @@ package dev.jdguo.land.trade;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.jdguo.land.world.GovernmentLand;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
@@ -12,6 +13,7 @@ import java.util.UUID;
 public final class LandQuoteChannel {
     public static final Identifier REQUEST = new Identifier("landmod", "quote_request");
     public static final Identifier RESPONSE = new Identifier("landmod", "quote_response");
+    public static final String GOVERNMENT_MANAGE = "government_land";
     public static final String DIMENSION_MANAGE = "dimension_manage";
     private LandQuoteChannel() {}
     public static void register() {
@@ -30,6 +32,8 @@ public final class LandQuoteChannel {
                 try {
                     if (operation.equals(dev.jdguo.land.network.CurrentWorldContext.QUOTE_OPERATION)) {
                         result = dev.jdguo.land.network.CurrentWorldContext.quoteContext(player, payload);
+                    } else if (GOVERNMENT_MANAGE.equals(operation)) {
+                        result = GovernmentLand.request(server, player, payload);
                     } else {
                     Class<?> api = Class.forName("dev.jdguo.market.api.LandMarketTerminal");
                     if (operation.equals("quote")) {

@@ -20,6 +20,17 @@ public final class MarketTradeBridge {
         }
     }
 
+    public static String governmentAllocationCheck(net.minecraft.server.MinecraftServer server, String dimension, int[] coordinates) {
+        if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("marketmod")) return "ok";
+        try {
+            return (String) Class.forName("dev.jdguo.market.api.LandMarketTerminal")
+                    .getMethod("governmentAllocationCheck", net.minecraft.server.MinecraftServer.class, String.class, int[].class)
+                    .invoke(null, server, dimension, coordinates);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException failure) {
+            return "请更新市场模组后再认购，避免占用正在结算的地块。";
+        }
+    }
+
     public static void open(ServerPlayerEntity player, UUID parcel, String action, List<ClaimKey> keys) {
         int[] coordinates = new int[keys.size() * 2];
         for (int i = 0; i < keys.size(); i++) {

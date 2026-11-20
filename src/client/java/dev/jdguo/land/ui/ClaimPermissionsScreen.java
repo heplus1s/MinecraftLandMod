@@ -15,6 +15,7 @@ import java.util.UUID;
 public final class ClaimPermissionsScreen extends Screen {
     private final Screen parent;
     private ClaimKey target;
+    private final boolean government;
     private boolean requested;
     private UUID pending;
     private boolean editable;
@@ -24,7 +25,13 @@ public final class ClaimPermissionsScreen extends Screen {
     private String members = "";
     private TextFieldWidget name;
     private ButtonWidget add, remove, refresh;
-    public ClaimPermissionsScreen(Screen parent) { super(Text.literal("区块权限")); this.parent = parent; }
+    public ClaimPermissionsScreen(Screen parent) { this(parent, null, false); }
+    ClaimPermissionsScreen(Screen parent, ClaimKey target, boolean government) {
+        super(Text.literal(government ? "服务器区块权限" : "区块权限"));
+        this.parent = parent;
+        this.target = target;
+        this.government = government;
+    }
     public static void register() {
         ClientPlayNetworking.registerGlobalReceiver(ClaimPermissions.CHANNEL, (client, handler, buf, sender) -> {
             UUID request; boolean editable; String message; String members;
@@ -44,7 +51,7 @@ public final class ClaimPermissionsScreen extends Screen {
     @Override protected void init() {
         String draft = name == null ? "" : name.getText();
         int w = Math.min(310, width - 24), x = (width - w) / 2;
-        if (!requested && LandPick.selected().size() == 1) target = LandPick.selected().iterator().next();
+        if (target == null && !requested && LandPick.selected().size() == 1) target = LandPick.selected().iterator().next();
         name = new TextFieldWidget(textRenderer, x, 54, w, 20, Text.literal("玩家名称"));
         name.setMaxLength(16); name.setText(draft); addDrawableChild(name);
         int bw = (w - 8) / 3;
@@ -60,16 +67,17 @@ public final class ClaimPermissionsScreen extends Screen {
         refresh.active = target != null && pending == null;
     }
     private void send(int action) {
-        if (target == null || pending != null) return;
+        if (target == null || pending != null || (government && !LandQuotes.canManage())) return;
         if (!ClientPlayNetworking.canSend(ClaimPermissions.CHANNEL)) { status = "服务器未支持权限界面；可用 /land trust 和 /land untrust"; return; }
         pending = UUID.randomUUID(); ticks = 0;
         var buf = PacketByteBufs.create(); buf.writeUuid(pending);
         buf.writeString(target.dimension()); buf.writeInt(target.chunkX()); buf.writeInt(target.chunkZ());
-        buf.writeByte(action); buf.writeString(name.getText().trim(), 16);
+        buf.writeByte(government ? action + 3 : action); buf.writeString(name.getText().trim(), 16);
         ClientPlayNetworking.send(ClaimPermissions.CHANNEL, buf);
         status = "正在等待服务器确认"; updateButtons();
     }
     @Override public void tick() {
+        if (government && !LandQuotes.canManage()) { close(); return; }
         name.tick();
         if (pending != null && ++ticks >= 200) { pending = null; status = "未收到确认，请刷新核对后重试"; }
         updateButtons();

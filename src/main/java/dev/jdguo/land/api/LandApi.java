@@ -3,6 +3,7 @@ package dev.jdguo.land.api;
 import dev.jdguo.land.claim.Claim;
 import dev.jdguo.land.claim.ClaimKey;
 import dev.jdguo.land.claim.ClaimMap;
+import dev.jdguo.land.claim.GovernmentOwner;
 import dev.jdguo.land.claim.ParcelInfo;
 import dev.jdguo.land.claim.SaleInfo;
 import dev.jdguo.land.config.LandConfig;
@@ -74,9 +75,17 @@ public final class LandApi {
         return cached.index();
     }
 
+    public static UUID governmentOwnerId() { return GovernmentOwner.ID; }
+
+    /** Validate canonical chunk geometry and the current world's border without granting ownership. */
+    public static List<ClaimKey> checkedInitialSelection(MinecraftServer server, String dimension, int[] coordinates) {
+        if (server == null || !server.isOnThread()) throw new IllegalArgumentException("thread");
+        return List.copyOf(initialKeys(server, dimension, coordinates, true));
+    }
+
     /** Read-only initial-sale validation. Coordinates are chunk x,z pairs. */
     public static String initialGrantCheck(MinecraftServer server, UUID buyer, String dimension, int[] coordinates) {
-        if (server == null || !server.isOnThread() || buyer == null) return "rejected:thread_or_buyer";
+        if (server == null || !server.isOnThread() || buyer == null || GovernmentOwner.is(buyer)) return "rejected:thread_or_buyer";
         try {
             var keys = initialKeys(server, dimension, coordinates, true);
             String checked = claims(server).checkInitialGrant(keys, buyer, LandConfig.maxClaimsPerPlayer());
@@ -86,7 +95,7 @@ public final class LandApi {
 
     /** Idempotent grant. pending/conflict must never trigger a refund; retry/reconcile instead. */
     public static String initialGrant(MinecraftServer server, UUID buyer, String dimension, int[] coordinates, String reference) {
-        if (server == null || !server.isOnThread() || buyer == null) return "rejected:thread_or_buyer";
+        if (server == null || !server.isOnThread() || buyer == null || GovernmentOwner.is(buyer)) return "rejected:thread_or_buyer";
         if (reference == null || reference.isBlank() || reference.length() > 160) return "rejected:reference";
         boolean replay = !saved(server).initialGrantStatus(reference).equals("missing");
         try {

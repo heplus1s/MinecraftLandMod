@@ -270,7 +270,7 @@ public final class ClaimMap {
     }
 
     public boolean updateName(UUID playerId, String playerName) {
-        if (playerName == null || playerName.isEmpty()) {
+        if (GovernmentOwner.is(playerId) || playerName == null || playerName.isEmpty()) {
             return false;
         }
         boolean changed = false;

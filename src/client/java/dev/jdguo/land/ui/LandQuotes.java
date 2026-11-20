@@ -37,6 +37,10 @@ public final class LandQuotes {
                         if (client.currentScreen instanceof LandDimensionPriceScreen screen) screen.receive(generation, value);
                         return;
                     }
+                    if (LandQuoteChannel.GOVERNMENT_MANAGE.equals(operation)) {
+                        if (canManage() && client.currentScreen instanceof GovernmentLandScreen screen) screen.receive(generation, value);
+                        return;
+                    }
                     if (operation.equals("manage")) { if (!canManage()) { clearManagement(); return; } management = value; if (client.currentScreen instanceof LandManageScreen screen) screen.receive(value); else if (client.currentScreen instanceof LandDynamicPriceScreen screen) screen.receive(value); }
                     else if (generation == LandPick.generation()) { quote = value; age = 0; }
                 } catch (RuntimeException ignored) { }
@@ -74,7 +78,7 @@ public final class LandQuotes {
         return send(operation, data, LandPick.generation());
     }
     static boolean send(String operation, JsonObject data, int generation) {
-        if (MinecraftClient.getInstance().getNetworkHandler() == null || (("manage".equals(operation) || LandQuoteChannel.DIMENSION_MANAGE.equals(operation)) && !canManage())) return false;
+        if (MinecraftClient.getInstance().getNetworkHandler() == null || (("manage".equals(operation) || LandQuoteChannel.DIMENSION_MANAGE.equals(operation) || LandQuoteChannel.GOVERNMENT_MANAGE.equals(operation)) && !canManage())) return false;
         if (!ClientPlayNetworking.canSend(LandQuoteChannel.REQUEST)) return false;
         var packet = PacketByteBufs.create(); packet.writeVarInt(generation);
         packet.writeString(operation); packet.writeString(data.toString(), 32767);

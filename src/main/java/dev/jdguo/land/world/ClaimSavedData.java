@@ -3,6 +3,7 @@ package dev.jdguo.land.world;
 import dev.jdguo.land.claim.Claim;
 import dev.jdguo.land.claim.ClaimKey;
 import dev.jdguo.land.claim.ClaimMap;
+import dev.jdguo.land.claim.GovernmentOwner;
 import dev.jdguo.land.claim.SaleInfo;
 import dev.jdguo.land.claim.SaleKind;
 import dev.jdguo.land.network.ClaimSync;
@@ -64,6 +65,7 @@ public final class ClaimSavedData extends PersistentState {
     }
 
     public String initialGrant(UUID buyer, List<ClaimKey> keys, String fingerprint, String reference) {
+        if (reference.startsWith("government:")) return "rejected:reference";
         if (initialGrants.contains(reference)) {
             if (!initialGrants.getString(reference).equals(fingerprint)) return "conflict";
             return flushGrant(reference) ? "applied" : "pending";
@@ -79,6 +81,46 @@ public final class ClaimSavedData extends PersistentState {
         ClaimSync.broadcast(server);
         LandTrade.broadcast(server);
         return durable ? "applied" : "pending";
+    }
+
+    /** Administrator-only allocation. Does not use the personal grant or settlement entry points. */
+    String allocateGovernment(ServerPlayerEntity operator, List<ClaimKey> keys, UUID token) {
+        if (!server.isOnThread() || operator == null || token == null || !operator.hasPermissionLevel(2)
+                || server.getPlayerManager().getPlayer(operator.getUuid()) != operator
+                || keys == null || keys.isEmpty()
+                || keys.stream().anyMatch(key -> !operator.getWorld().getRegistryKey().getValue().toString().equals(key.dimension())))
+            return "rejected:permission";
+        String reference = "government:" + token;
+        StringBuilder fingerprint = new StringBuilder(operator.getUuid().toString());
+        for (ClaimKey key : keys) fingerprint.append('|').append(key.dimension()).append(':').append(key.chunkX()).append(',').append(key.chunkZ());
+        if (initialGrants.contains(reference)) {
+            if (!initialGrants.getString(reference).contentEquals(fingerprint)) return "conflict";
+            return flushGrant(reference) ? "applied" : "pending";
+        }
+        var result = claims.initialGrant(keys, GovernmentOwner.ID, GovernmentOwner.NAME, 0);
+        if (!result.succeeded()) return "rejected:" + result.subject();
+        var metadata = new NbtCompound();
+        metadata.putUuid("Operator", operator.getUuid());
+        metadata.putString("OperatorName", operator.getGameProfile().getName());
+        metadata.putLong("Time", System.currentTimeMillis());
+        metadata.putString("Reference", reference);
+        claims.putParcelFlag(result.claim().parcelId(), "government_allocation", metadata);
+        initialGrants.putString(reference, fingerprint.toString());
+        unflushedGrants.add(reference);
+        markDirty();
+        boolean durable = flushGrant(reference);
+        ClaimSync.broadcast(server);
+        LandTrade.broadcast(server);
+        return durable ? "applied" : "pending";
+    }
+
+    ClaimMap.Result renameGovernment(ServerPlayerEntity player, UUID parcelId, String name) {
+        var current = claims.info(parcelId);
+        if (!player.hasPermissionLevel(2) || current == null || !GovernmentOwner.is(current.owner()))
+            return ClaimMap.fail(ClaimMap.Denial.NOT_OWNER, null, "");
+        var result = claims.renameParcel(GovernmentOwner.ID, parcelId, name);
+        finish(result.succeeded());
+        return result;
     }
 
     /** Atomically replace the same PersistentState file, acknowledge only after read-back. */
@@ -135,10 +177,10 @@ public final class ClaimSavedData extends PersistentState {
         }
         ClaimMap.Result result;
         try {
-            result = whole ? claims.transferParcel(actor, parcelId, buyer, buyerName,
-                    dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer(), reference)
-                    : claims.transferChunks(actor, canonical, buyer, buyerName,
-                    dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer(), reference);
+            int maxClaims = GovernmentOwner.is(buyer) ? 0 : dev.jdguo.land.config.LandConfig.maxClaimsPerPlayer();
+            String ownerName = GovernmentOwner.is(buyer) ? GovernmentOwner.NAME : buyerName;
+            result = whole ? claims.transferParcel(actor, parcelId, buyer, ownerName, maxClaims, reference)
+                    : claims.transferChunks(actor, canonical, buyer, ownerName, maxClaims, reference);
         } catch (RuntimeException unknown) {
             // A listener may throw after ownership changed. Do not make a false rejection.
             markDirty();
@@ -213,9 +255,13 @@ public final class ClaimSavedData extends PersistentState {
 
     /** Explicit map target. Ownership is checked by ClaimMap for every mutation. */
     public ClaimMap.Result setMember(ServerPlayerEntity player, ClaimKey key, UUID memberId, String memberName, boolean add) {
+        var claim = claims.get(key.dimension(), key.chunkX(), key.chunkZ());
+        if (claim == null || !GovernmentOwner.mayManage(player.getUuid(), claim.owner(), player.hasPermissionLevel(2)))
+            return ClaimMap.fail(ClaimMap.Denial.NOT_OWNER, claim, "");
+        UUID actor = claim.owner();
         ClaimMap.Result result = add
-                ? claims.trust(key.dimension(), key.chunkX(), key.chunkZ(), player.getUuid(), memberId, memberName)
-                : claims.untrust(key.dimension(), key.chunkX(), key.chunkZ(), player.getUuid(), memberId, memberName);
+                ? claims.trust(key.dimension(), key.chunkX(), key.chunkZ(), actor, memberId, memberName)
+                : claims.untrust(key.dimension(), key.chunkX(), key.chunkZ(), actor, memberId, memberName);
         finish(result.succeeded());
         return result;
     }

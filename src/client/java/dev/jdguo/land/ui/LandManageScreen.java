@@ -14,7 +14,7 @@ public final class LandManageScreen extends Screen {
     private String currencyId = "";
     private boolean enabled;
     private boolean reading;
-    private ButtonWidget enabledButton, readButton, backButton;
+    private ButtonWidget enabledButton, readButton, backButton, governmentButton;
     private String localMessage = "";
     public LandManageScreen(Screen parent) { super(Text.literal("领地管理")); this.parent = parent; }
     @Override protected void init() {
@@ -58,18 +58,20 @@ public final class LandManageScreen extends Screen {
         }).dimensions(x, 146, w, 20).build());
         readButton = addDrawableChild(ButtonWidget.builder(Text.literal("读取当前设置"), button -> request()).dimensions(x, 174, w / 2 - 2, 20).build());
         backButton = addDrawableChild(ButtonWidget.builder(Text.literal("返回"), button -> close()).dimensions(x + w / 2 + 2, 174, w / 2 - 2, 20).build());
-        int third = (w - 8) / 3;
+        int quarter = (w - 12) / 4;
         addDrawableChild(ButtonWidget.builder(Text.literal("填入建议地价"), button -> {
             var data = LandQuotes.management();
             price.setText(LandQuotes.text(data, "recommendedPrice", "32"));
             currencyId = LandQuotes.text(data, "recommendedCurrency", "note");
             currency.setText(CurrencyLabels.label(currencyId, data));
             localMessage = "仅填入建议，点击保存后才生效；不会修改二手挂牌";
-        }).dimensions(x, 202, third, 20).build());
+        }).dimensions(x, 202, quarter, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("动态地价设置"), button ->
-                client.setScreen(new LandDynamicPriceScreen(this))).dimensions(x + third + 4, 202, third, 20).build());
+                client.setScreen(new LandDynamicPriceScreen(this))).dimensions(x + quarter + 4, 202, quarter, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("维度地价设置"), button ->
-                client.setScreen(new LandDimensionPriceScreen(this))).dimensions(x + 2 * (third + 4), 202, w - 2 * (third + 4), 20).build());
+                client.setScreen(new LandDimensionPriceScreen(this))).dimensions(x + 2 * (quarter + 4), 202, quarter, 20).build());
+        governmentButton = addDrawableChild(ButtonWidget.builder(Text.literal("服务器用地"), button ->
+                client.setScreen(new GovernmentLandScreen(this))).dimensions(x + 3 * (quarter + 4), 202, w - 3 * (quarter + 4), 20).build());
         request();
     }
     private void request() {
@@ -95,7 +97,7 @@ public final class LandManageScreen extends Screen {
     }
     private void setEditing(boolean active) {
         for (var child : children()) {
-            if (child instanceof net.minecraft.client.gui.widget.ClickableWidget widget && child != readButton && child != backButton) widget.active = active;
+            if (child instanceof net.minecraft.client.gui.widget.ClickableWidget widget && child != readButton && child != backButton && child != governmentButton) widget.active = active;
         }
         if (price != null) price.setEditable(active);
     }
